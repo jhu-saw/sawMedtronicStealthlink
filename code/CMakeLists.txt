@@ -1,0 +1,69 @@
+#
+# $Id$
+#
+# (C) Copyright 2011 Johns Hopkins University (JHU), All Rights
+# Reserved.
+#
+# --- begin cisst license - do not edit ---
+#
+# This software is provided "as is" under an open source license, with
+# no warranty.  The complete license can be found in license.txt and
+# http://www.cisst.org/cisst/license.txt.
+#
+# --- end cisst license ---
+
+set (REQUIRED_CISST_LIBRARIES cisstCommon
+                              cisstCommonXML
+                              cisstVector
+                              cisstOSAbstraction
+                              cisstMultiTask
+                              cisstParameterTypes)
+
+find_package (cisst REQUIRED ${REQUIRED_CISST_LIBRARIES})
+
+if (cisst_FOUND_AS_REQUIRED)
+
+  # load cisst configuration
+  include (${CISST_USE_FILE})
+
+  # create alias for code and cmake configured file
+  option (SAW_BUILD_sawMedtronicStealthlink_SIMULATOR "Wrappers for Medtronic StealthLink simulator (build instead of real wrapper which requires binaries from Medtronic" OFF)
+  mark_as_advanced (SAW_BUILD_sawMedtronicStealthlink_SIMULATOR)
+  set (sawMedtronicStealthlink_IS_SIMULATOR ${SAW_BUILD_sawMedtronicStealthlink_SIMULATOR})
+
+  # add definition for code
+  if (sawMedtronicStealthlink_IS_SIMULATOR)
+    add_definitions (-DsawMedtronicStealthlink_IS_SIMULATOR)
+  endif (sawMedtronicStealthlink_IS_SIMULATOR)
+
+  add_library (sawMedtronicStealthlink ${IS_SHARED}
+               ../sawMedtronicStealthlinkExport.h
+               mtsMedtronicStealthlink.cpp
+               ../mtsMedtronicStealthlink.h
+               ../mtsMedtronicStealthlinkTypes.h
+               mtsMedtronicStealthlinkTypes.cpp
+               mtsMedtronicStealthlink_AsCL_Stuff.cpp
+               mtsMedtronicStealthlink_AsCL_Stuff.h
+               )
+
+  target_link_libraries (sawMedtronicStealthlink ${Stealthlink_LIBRARIES})
+
+  set (sawMedtronicStealthlink_INCLUDE_DIR "${sawComponents_SOURCE_DIR}")
+  set (sawMedtronicStealthlink_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
+  set (sawMedtronicStealthlink_LIBRARIES sawMedtronicStealthlink ${Stealthlink_LIBRARIES})
+
+  configure_file ("${CMAKE_CURRENT_SOURCE_DIR}/sawMedtronicStealthlinkConfig.cmake.in"
+                  "${sawComponents_BINARY_DIR}/sawMedtronicStealthlinkConfig.cmake"
+                   @ONLY@)
+
+  if (WIN32)
+    target_link_libraries (sawMedtronicStealthlink ws2_32.lib)
+    set (sawMedtronicStealthlink_LIBRARIES ${sawMedtronicStealthlink_LIBRARIES} ws2_32.lib)
+    set (CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /NODEFAULTLIB:msvcprt.lib /NODEFAULTLIB:LIBCMT.lib")
+  endif (WIN32)
+
+  cisst_target_link_libraries (sawMedtronicStealthlink ${REQUIRED_CISST_LIBRARIES})
+
+else (cisst_FOUND_AS_REQUIRED)
+  message ("Information: code in ${CMAKE_CURRENT_SOURCE_DIR} will not be compiled, it requires ${REQUIRED_CISST_LIBRARIES}")
+endif (cisst_FOUND_AS_REQUIRED)

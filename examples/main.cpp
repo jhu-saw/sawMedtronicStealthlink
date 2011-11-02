@@ -20,10 +20,12 @@ http://www.cisst.org/cisst/license.txt.
 
 #include <cisstOSAbstraction/osaSleep.h>
 #include <cisstMultiTask/mtsTaskManager.h>
+#include <cisstMultiTask.h>
+#include <cisstCommon/cmnGetChar.h>
 #include <sawMedtronicStealthlink/mtsMedtronicStealthlink.h>
 #include "mtsMedtronicStealthlinkExampleComponent.h"
 
-int main(int CMN_UNUSED(argc), char * CMN_UNUSED(argv[]))
+int main(int argc, char * argv[])
 {
     // log configuration
     cmnLogger::SetMask(CMN_LOG_ALLOW_ALL);
@@ -34,6 +36,8 @@ int main(int CMN_UNUSED(argc), char * CMN_UNUSED(argv[]))
     // set the log level of detail on select components
     cmnLogger::SetMaskClass("cmnXMLPath", CMN_LOG_ALLOW_ALL);
     cmnLogger::SetMaskClassMatching("mts", CMN_LOG_ALLOW_ALL);
+
+    std::cerr << "Usage: " << argv[0] << " [flagForDataCollection]" << std::endl;
 
     // create the components
     mtsMedtronicStealthlink * componentStealthlink = new mtsMedtronicStealthlink("Stealthlink", 50.0 * cmn_ms);
@@ -76,15 +80,69 @@ int main(int CMN_UNUSED(argc), char * CMN_UNUSED(argv[]))
         CMN_LOG_INIT_ERROR << "Could not connect test component to ExamInformation interface." << std::endl;
         return 0;
     }
- 
+
+    ///// Data Collection /////
+    // collect all state data in csv file
+    mtsCollectorState * collector;
+    int stateCollectionFlag = 0;
+    if(argc == 2)
+    {
+        stateCollectionFlag = atoi(argv[1]);
+    }
+
+    std::cout << "Starting ... 'q' to stop" << std::endl;
+
+    if(stateCollectionFlag)
+    {
+        std::cout << "Adding collector for " << componentStealthlink->GetName() << "'s state table: "
+                << componentStealthlink->GetDefaultStateTableName() << std::endl;
+        std::cout << "'s' to start/stop data collection" << std::endl;
+        collector =
+                new mtsCollectorState(componentStealthlink->GetName(),
+                                      componentStealthlink->GetDefaultStateTableName(),
+                                      mtsCollectorBase::COLLECTOR_FILE_FORMAT_CSV);
+        collector->AddSignal(); // all signals
+        //collector->AddSignal("FrameData");
+        //collector->AddSignal("PointerPosition");
+        componentManager->AddComponent(collector);
+        collector->Connect();
+    }
+
     // create and start all components
     componentManager->CreateAll();
     componentManager->WaitForStateAll(mtsComponentState::READY, 2.0 * cmn_s);
     componentManager->StartAll();
     componentManager->WaitForStateAll(mtsComponentState::ACTIVE, 2.0 * cmn_s);
 
-    while (1) {
+    int ch;
+    bool started = false;
+    while (ch != 'q') {
         osaSleep(1.0 * cmn_s);
+
+        ch = cmnGetChar();
+
+        switch (ch) {
+        case 's':
+            if(started)
+            {
+                collector->StopCollection(0.0);
+                std::cout << "Stop data collection" << std::endl;
+                started = false;
+
+            }
+            else
+            {
+                collector->StartCollection(0.0);
+                std::cout << "Start data collection" << std::endl;
+                started = true;
+
+            }
+            break;
+
+        default:
+            break;
+        }
+
     }
 
     // kill all components and perform cleanup

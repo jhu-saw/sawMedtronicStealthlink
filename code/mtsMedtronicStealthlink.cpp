@@ -26,6 +26,7 @@ http://www.cisst.org/cisst/license.txt.
 
 #include <cisstCommon/cmnPortability.h>
 #include <cisstCommon/cmnXMLPath.h>
+#include <cisstMultiTask/mtsFixedSizeVectorTypes.h>
 #include <cisstMultiTask/mtsInterfaceProvided.h>
 
 #ifdef CISST_HAS_STEALTHLINK

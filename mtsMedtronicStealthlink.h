@@ -23,6 +23,7 @@ http://www.cisst.org/cisst/license.txt.
 
 #include <cisstMultiTask/mtsTaskPeriodic.h>
 #include <cisstMultiTask/mtsTransformationTypes.h>
+#include <cisstMultiTask/mtsFixedSizeVectorTypes.h>
 #include <cisstParameterTypes/prmPositionCartesianGet.h>
 
 // data types used for wrapper
@@ -77,7 +78,7 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskPeriodic
     class Registration
     {
     public:
-        vctFrm3 Transformation;
+        mtsFrm3 Transformation;
         mtsBool Valid;
         mtsDouble PredictedAccuracy;
     };
@@ -87,8 +88,8 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskPeriodic
     class ExamInformation
     {
     public:
-        vctDouble3 VoxelScale;
-        vctInt3 Size;
+        mtsDouble3 VoxelScale;
+        mtsInt3 Size;
         bool Valid;
     };
     ExamInformation ExamInformationMember;

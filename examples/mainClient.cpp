@@ -20,6 +20,7 @@ http://www.cisst.org/cisst/license.txt.
 
 #include <cisstOSAbstraction/osaSleep.h>
 #include <cisstMultiTask/mtsTaskManager.h>
+#include <cisstCommon/cmnGetChar.h>
 #include <sawMedtronicStealthlink/mtsMedtronicStealthlink.h>
 #include "mtsMedtronicStealthlinkExampleComponent.h"
 
@@ -40,9 +41,10 @@ int main(int argc, char * argv[])
 #endif
 
     std::string globalComponentManagerIP;
+    int stateCollectionFlag = 0;
 
     if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " [GlobalManagerIP] [flag]" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " [GlobalManagerIP] [flagForDataCollection]" << std::endl;
         std::cerr << "       GlobalManagerIP is set as 127.0.0.1 by default" << std::endl;
     }
 
@@ -52,11 +54,17 @@ int main(int argc, char * argv[])
         globalComponentManagerIP = "localhost";
     } else if (argc == 2) {
         globalComponentManagerIP = argv[1];
+    }else if (argc == 3) {
+        globalComponentManagerIP = argv[1];
+        stateCollectionFlag = atoi(argv[2]);
     } else {
         exit(-1);
     }
 
-    std::cout << "Starting server, IP = " << globalComponentManagerIP << std::endl;
+    std::cout << "Starting server, IP = " << globalComponentManagerIP << " 'q' to stop" << std::endl;
+    if(stateCollectionFlag){
+        std::cout << "        with data collection. 's' to start/stop data collection" << std::endl;
+    }
 
     // Get the TaskManager instance and set operation mode
     mtsManagerLocal * componentManager;
@@ -68,7 +76,11 @@ int main(int argc, char * argv[])
     }
 
     //client
-    mtsMedtronicStealthlinkExampleComponent * componentExample = new mtsMedtronicStealthlinkExampleComponent("Example", 50 * cmn_ms);
+    mtsMedtronicStealthlinkExampleComponent * componentExample;
+    if(stateCollectionFlag)
+        componentExample= new mtsMedtronicStealthlinkExampleComponent("Example", 50 * cmn_ms, true);
+    else
+        componentExample = new mtsMedtronicStealthlinkExampleComponent("Example", 50 * cmn_ms);
 
     // add the components to the component manager
     componentManager->AddComponent(componentExample);
@@ -103,6 +115,15 @@ int main(int argc, char * argv[])
         CMN_LOG_INIT_ERROR << "Could not connect test component to ExamInformation interface." << std::endl;
         return 0;
     }
+    
+    if(stateCollectionFlag)
+    {
+        if (!componentManager->Connect("ProcessClient", componentExample->GetName(), "CollectorState",
+                                       "ProcessServer", "StealthlinkStateCollector", "Control")) {
+            CMN_LOG_INIT_ERROR << "Could not connect test component to Control interface." << std::endl;
+            return 0;
+        }
+    }
 
     // create the tasks, i.e. find the commands
     componentManager->CreateAll();
@@ -112,10 +133,53 @@ int main(int argc, char * argv[])
     componentManager->StartAll();
     componentManager->WaitForStateAll(mtsComponentState::ACTIVE);
 
+    // wait for keyboard input in command window
+    int ch;
+    // execution result used by all functions
+    mtsExecutionResult executionResult;
+
     bool GCMActive = true;
-    while (GCMActive) {
+    bool started = false;
+    while (GCMActive && ch != 'q') {
         osaSleep(5.0 * cmn_ms);
         GCMActive = componentManager->IsGCMActive();
+
+        ch = cmnGetChar();
+
+        switch (ch) {
+        case 's':
+            if(started)
+            {
+                if(componentExample->CollectorState.StopCollection.IsValid())
+                {
+                    executionResult = componentExample->CollectorState.StopCollection();
+                    osaSleep(0.1 * cmn_s);
+                    std::cout << "Stop data collection" << std::endl;
+                    started = false;
+                }
+            }
+            else
+            {
+                if(componentExample->CollectorState.StartCollection.IsValid())
+                {
+                    executionResult = componentExample->CollectorState.StartCollection();
+                    osaSleep(0.1 * cmn_s);
+                    if(executionResult.IsOK())
+                    {
+                        std::cout << "Start data collection" << std::endl;
+                        started = true;
+                    }
+                    else
+                        std::cout << "StartCollection failed to execute." << std::endl;
+
+                }
+            }
+            break;
+
+        default:
+            break;
+        }
+
     }
 
     if (!GCMActive) {

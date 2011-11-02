@@ -20,6 +20,8 @@ http://www.cisst.org/cisst/license.txt.
 
 #include <cisstOSAbstraction/osaSleep.h>
 #include <cisstMultiTask/mtsTaskManager.h>
+#include <cisstMultiTask.h>
+#include <cisstCommon/cmnGetChar.h>
 #include <sawMedtronicStealthlink/mtsMedtronicStealthlink.h>
 #include "mtsMedtronicStealthlinkExampleComponent.h"
 
@@ -40,9 +42,10 @@ int main(int argc, char * argv[])
 #endif
 
     std::string globalComponentManagerIP;
+    int stateCollectionFlag = 0;
 
     if (argc != 2) {
-        std::cerr << "Usage: " << argv[0] << " [GlobalManagerIP] [flag]" << std::endl;
+        std::cerr << "Usage: " << argv[0] << " [GlobalManagerIP] [flagForDataCollection]" << std::endl;
         std::cerr << "       GlobalManagerIP is set as 127.0.0.1 by default" << std::endl;
     }
 
@@ -52,11 +55,16 @@ int main(int argc, char * argv[])
         globalComponentManagerIP = "localhost";
     } else if (argc == 2) {
         globalComponentManagerIP = argv[1];
+    }else if (argc == 3) {
+        globalComponentManagerIP = argv[1];
+        stateCollectionFlag = atoi(argv[2]);
     } else {
         exit(-1);
     }
 
-    std::cout << "Starting server, IP = " << globalComponentManagerIP << std::endl;
+    std::cout << "Starting server, IP = " << globalComponentManagerIP << " 'q' to stop " << std::endl;
+    if(stateCollectionFlag)
+        std::cout << "        with data collection. 's' to start/stop data collection" << std::endl;
 
     // Get the TaskManager instance and set operation mode
     mtsManagerLocal * componentManager;
@@ -74,6 +82,22 @@ int main(int argc, char * argv[])
     // add the components to the component manager
     componentManager->AddComponent(componentStealthlink);
 
+    // collect all state data in csv file
+    mtsCollectorState * collector;
+    if(stateCollectionFlag)
+    {
+        collector =
+                new mtsCollectorState(componentStealthlink->GetName(),
+                                      componentStealthlink->GetDefaultStateTableName(),
+                                      mtsCollectorBase::COLLECTOR_FILE_FORMAT_CSV);
+        collector->SetName("StealthlinkStateCollector");
+        //collector->AddSignal();
+        collector->AddSignal("ToolData");
+
+        componentManager->AddComponent(collector);
+        collector->Connect();
+    }
+
     // create the tasks, i.e. find the commands
     componentManager->CreateAll();
     componentManager->WaitForStateAll(mtsComponentState::READY);
@@ -82,10 +106,38 @@ int main(int argc, char * argv[])
     componentManager->StartAll();
     componentManager->WaitForStateAll(mtsComponentState::ACTIVE);
 
+    int ch;
     bool GCMActive = true;
-    while (GCMActive) {
-        GCMActive = componentManager->IsGCMActive();
+    bool started = false;
+    while (GCMActive && ch != 'q') {
         osaSleep(5.0 * cmn_ms);
+        GCMActive = componentManager->IsGCMActive();
+        osaSleep(1.0 * cmn_s);
+
+        ch = cmnGetChar();
+
+        switch (ch) {
+        case 's':
+            if(started)
+            {
+                collector->StopCollection(0.0);
+                std::cout << "Stop data collection" << std::endl;
+                started = false;
+
+            }
+            else
+            {
+                collector->StartCollection(0.0);
+                std::cout << "Start data collection" << std::endl;
+                started = true;
+
+            }
+            break;
+
+        default:
+            break;
+        }
+
     }
 
     if (!GCMActive) {
@@ -98,8 +150,13 @@ int main(int argc, char * argv[])
 
     // delete components
     delete componentStealthlink;
+    delete collector;
 
     componentManager->Cleanup();
+    // the manager singleton needs to be cleaned up, adeguet1
+    //std::cerr << "temporary hack " << CMN_LOG_DETAILS << std::endl;
+    //componentManager->RemoveComponent("LCM_MCC");
+    //componentManager->RemoveComponent("MCS");
 
     return 0;
 }

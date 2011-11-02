@@ -23,10 +23,36 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsTransformationTypes.h>
 #include <cisstParameterTypes/prmPositionCartesianGet.h>
 #include <sawMedtronicStealthlink/mtsMedtronicStealthlinkTypes.h>
+#include <cisstMultiTask/mtsFixedSizeVectorTypes.h>
 
 mtsMedtronicStealthlinkExampleComponent::mtsMedtronicStealthlinkExampleComponent(const std::string & name,
                                                                                  double periodInSeconds):
-    mtsTaskPeriodic(name, periodInSeconds)
+    mtsTaskPeriodic(name, periodInSeconds),
+    BatchReadyEventCounter(0),
+    CollectionRunning(false),
+    SamplesCollected(0)
+{
+
+   AddStealthlinkInterface();
+}
+
+mtsMedtronicStealthlinkExampleComponent::mtsMedtronicStealthlinkExampleComponent(const std::string & name,
+                                                                                 double periodInSeconds,
+                                                                                 bool enableStateCollectionInterface):
+    mtsTaskPeriodic(name, periodInSeconds),
+    BatchReadyEventCounter(0),
+    CollectionRunning(false),
+    SamplesCollected(0)
+{
+
+    AddStealthlinkInterface();
+
+    //state collection
+    if(enableStateCollectionInterface)
+        AddStateCollectionInterface();
+}
+
+void mtsMedtronicStealthlinkExampleComponent::AddStealthlinkInterface()
 {
     mtsInterfaceRequired * required = AddInterfaceRequired("Stealthlink");
     if (required) {
@@ -56,6 +82,17 @@ mtsMedtronicStealthlinkExampleComponent::mtsMedtronicStealthlinkExampleComponent
     }
 }
 
+void mtsMedtronicStealthlinkExampleComponent::AddStateCollectionInterface()
+{
+    mtsInterfaceRequired * required;
+
+    required = AddInterfaceRequired("CollectorState");
+    if (required) {
+        required->AddFunction("StartCollection", CollectorState.StartCollection);
+        required->AddFunction("StopCollection", CollectorState.StopCollection);
+    }
+}
+
 void mtsMedtronicStealthlinkExampleComponent::AddToolInterface(const std::string & toolName,
                                                                mtsMedtronicStealthlinkExampleComponent::ToolStruct & functionSet)
 {
@@ -72,10 +109,10 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
     mtsStealthTool StealthTool;
     mtsStealthFrame StealthFrame;
     prmPositionCartesianGet prmPos;
-    vctFrm3 vctFrm;
     mtsFrm3 mtsFrm;
     mtsDouble predictedAccuracy;
 
+    bool debug = false;
     bool didOutput = false;
     mtsExecutionResult result;
     result = Stealthlink.GetTool(StealthTool);
@@ -83,7 +120,11 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
         std::cout << "Stealthlink.GetTool() failed: " << result << std::endl;
     }
     if (StealthTool.Valid()) {
-        std::cout << "Tool " << StealthTool.GetName() << ": " << StealthTool.GetFrame().Translation() << "; ";
+        if(debug)
+        {
+            std::cout << "Tool " << StealthTool.GetName() << ": " << StealthTool.GetFrame().Translation() << "; ";
+            std::cout << StealthTool.GetFrame().Rotation() << "; ";
+        }
         didOutput = true;
     }
 
@@ -92,7 +133,8 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
         std::cout << "Stealthlink.GetFrame() failed: " << result << std::endl;
     }
     if (StealthFrame.Valid()) {
-        std::cout << "Frame " << StealthFrame.GetName() << ": " << StealthFrame.GetFrame().Translation() << "; ";
+        if(debug)
+            std::cout << "Frame " << StealthFrame.GetName() << ": " << StealthFrame.GetFrame().Translation() << "; ";
         didOutput = true;
     }
 
@@ -102,7 +144,8 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
             std::cout << "Pointer.GetPositionCartesian() failed: " << result << std::endl;
         }
         if (prmPos.Valid()) {
-            std::cout << "Interface Pointer: " << prmPos.Position().Translation() << "; ";
+            if(debug)
+                std::cout << "Interface Pointer: " << prmPos.Position().Translation() << "; ";
             didOutput = true;
         }
     }
@@ -112,7 +155,8 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
             std::cout << "Pointer.GetMarkerCartesian() failed: " << result << std::endl;
         }
         if (prmPos.Valid()) {
-            std::cout << "Interface PointerM: " << prmPos.Position().Translation() << "; ";
+            if(debug)
+                std::cout << "Interface PointerM: " << prmPos.Position().Translation() << "; ";
             didOutput = true;
         }
     }
@@ -123,10 +167,12 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
             std::cout << "Frame.GetPositionCartesian() failed: " << result << std::endl;
         }
         if (prmPos.Valid()) {
-            std::cout << "Interface Frame: " << prmPos.Position().Translation() << "; ";
+            if(debug)
+                std::cout << "Interface Frame: " << prmPos.Position().Translation() << "; ";
             didOutput = true;
         } else {
-            std::cerr << "Interface Frame, invalid position" << std::endl;
+            if(debug)
+                std::cerr << "Interface Frame, invalid position" << std::endl;
             didOutput = true;
         }
     }
@@ -136,10 +182,12 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
             std::cout << "Frame.GetMarkerCartesian() failed: " << result << std::endl;
         }
         if (prmPos.Valid()) {
-            std::cout << "Interface FrameM: " << prmPos.Position().Translation() << "; ";;
+            if(debug)
+                std::cout << "Interface FrameM: " << prmPos.Position().Translation() << "; ";;
             didOutput = true;
         } else {
-            std::cerr << "Interface Frame, invalid position" << std::endl;
+            if(debug)
+                std::cerr << "Interface Frame, invalid position" << std::endl;
             didOutput = true;
         }
     }
@@ -151,11 +199,13 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
             std::cout << "Registration.GetValid() failed: " << result << std::endl;
         }
         if (valid) {
-            Registration.GetTransformation(vctFrm);
-            std::cout << "Registration: " << vctFrm.Translation() << "; ";;
+            Registration.GetTransformation(mtsFrm);
+            if(debug)
+                std::cout << "Registration: " << mtsFrm.Translation() << "; ";;
             didOutput = true;
         } else {
-            std::cout << "Registration: invalid" << std::endl;
+            if(debug)
+                std::cout << "Registration: invalid" << std::endl;
             didOutput = true;
         }
     }
@@ -170,32 +220,37 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
                 std::cout << "ExamInformation.GetValid() failed: " << result << std::endl;
             } else {
                 if (valid) {
-                    vctDouble3 voxelScale;
+                    mtsDouble3 voxelScale;
                     result = ExamInformation.GetVoxelScale(voxelScale);
                     if (!result.IsOK()) {
                         std::cout << "ExamInformation.GetVoxelScale() failed: " << result << std::endl;
                     } else {
-                        std::cout << "Voxel scale: " << voxelScale << "; ";
+                        if(debug)
+                            std::cout << "Voxel scale: " << voxelScale << "; ";
                         didOutput = true;
                     }
-                    vctInt3 sizes;
+                    mtsInt3 sizes;
                     result = ExamInformation.GetSize(sizes);
                     if (!result.IsOK()) {
-                        std::cout << "ExamInformation.GetSize() failed: " << result << std::endl;
+                        if(debug)
+                            std::cout << "ExamInformation.GetSize() failed: " << result << std::endl;
                     } else {
-                        std::cout << "Size: " << sizes << "; ";
+                        if(debug)
+                            std::cout << "Size: " << sizes << "; ";
                     }
                 } else {
-                    std::cout << "ExamInformation is not valid" << std::endl;
+                    if(debug)
+                        std::cout << "ExamInformation is not valid" << std::endl;
                     didOutput = true;
                 }
             }
         }
     }
 
-    if (didOutput) {
+    if (didOutput && debug) {
         std::cout << std::endl;
     } else {
-        std::cout << "." << std::flush;
+        if(debug)
+            std::cout << "." << std::flush;
     }
 }

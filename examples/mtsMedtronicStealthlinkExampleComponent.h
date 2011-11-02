@@ -50,12 +50,37 @@ public:
         mtsFunctionRead GetValid;
     };
 
+    struct CollectorStateStruct {
+        mtsFunctionVoid StartCollection;
+        mtsFunctionVoid StopCollection;
+    };
+
+    struct TestComponentStruct{
+        mtsFunctionVoid StateTableAdvance;
+    };
+
+    void BatchReadyHandler(const mtsStateTable::IndexRange & range) {
+        this->BatchReadyEventCounter++;
+        this->LastRange = range;
+    }
+
+    void CollectionStartedHandler(void) {
+        this->CollectionRunning = true;
+    }
+
+    void CollectionStoppedHandler(const mtsUInt & samplesCollected) {
+        this->CollectionRunning = false;
+        this->SamplesCollected = samplesCollected;
+    }
+
     mtsMedtronicStealthlinkExampleComponent(const std::string & name,
                                             double periodInSeconds);
-    ~mtsMedtronicStealthlinkExampleComponent() {}
 
-    void AddToolInterface(const std::string & toolName,
-                          ToolStruct & functionSet);
+    mtsMedtronicStealthlinkExampleComponent(const std::string & name,
+                                            double periodInSeconds,
+                                            bool enableStateCollectionInterface);
+
+    ~mtsMedtronicStealthlinkExampleComponent() {}
 
     void Run(void);
 
@@ -64,6 +89,21 @@ public:
     ToolStruct Frame;
     RegistrationStruct Registration;
     ExamInformationStruct ExamInformation;
+
+    unsigned int BatchReadyEventCounter; // counter for range events from state table
+    mtsStateTable::IndexRange LastRange;
+    bool CollectionRunning;
+    unsigned int SamplesCollected;
+    CollectorStateStruct CollectorState;
+    TestComponentStruct TestComponent;
+
+protected:
+    void AddStealthlinkInterface();
+
+    void AddStateCollectionInterface();
+
+    void AddToolInterface(const std::string & toolName,
+                          ToolStruct & functionSet);
 };
 
 #endif // _mtsMedtronicStealthlinkExampleComponent_h

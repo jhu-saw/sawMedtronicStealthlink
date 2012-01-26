@@ -27,9 +27,9 @@ if (cisst_FOUND_AS_REQUIRED)
   include (${CISST_USE_FILE})
 
   # create alias for code and cmake configured file
-  option (SAW_BUILD_MedtronicStealthlink_SIMULATOR "Wrappers for Medtronic StealthLink simulator (build instead of real wrapper which requires binaries from Medtronic)" OFF)
-  mark_as_advanced (SAW_BUILD_MedtronicStealthlink_SIMULATOR)
-  set (sawMedtronicStealthlink_IS_SIMULATOR ${SAW_BUILD_MedtronicStealthlink_SIMULATOR})
+  option (SAW_MedtronicStealthlink_SIMULATOR "Wrappers for Medtronic StealthLink simulator (build instead of real wrapper which requires binaries from Medtronic)" OFF)
+  mark_as_advanced (SAW_MedtronicStealthlink_SIMULATOR)
+  set (sawMedtronicStealthlink_IS_SIMULATOR ${SAW_MedtronicStealthlink_SIMULATOR})
 
   # add definition for code
   if (sawMedtronicStealthlink_IS_SIMULATOR)

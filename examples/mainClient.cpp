@@ -75,7 +75,7 @@ int main(int argc, char * argv[])
         return 1;
     }
 
-    //client
+    // client
     mtsMedtronicStealthlinkExampleComponent * componentExample;
     if(stateCollectionFlag)
         componentExample= new mtsMedtronicStealthlinkExampleComponent("Example", 50 * cmn_ms, true);

@@ -7,7 +7,7 @@
   Author(s):  Peter Kazanzides, Anton Deguet
   Created on: 2011-07-14
 
-  (C) Copyright 2011 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2011-2012 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -22,7 +22,11 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsInterfaceRequired.h>
 #include <cisstMultiTask/mtsTransformationTypes.h>
 #include <cisstParameterTypes/prmPositionCartesianGet.h>
+
+#ifndef SAW_MEDTRONIC_WITHOUT_STEALTHLINK_TYPES
 #include <sawMedtronicStealthlink/mtsMedtronicStealthlinkTypes.h>
+#endif
+
 #include <cisstMultiTask/mtsFixedSizeVectorTypes.h>
 
 mtsMedtronicStealthlinkExampleComponent::mtsMedtronicStealthlinkExampleComponent(const std::string & name,
@@ -106,8 +110,10 @@ void mtsMedtronicStealthlinkExampleComponent::AddToolInterface(const std::string
 
 void mtsMedtronicStealthlinkExampleComponent::Run(void)
 {
+#ifndef SAW_MEDTRONIC_WITHOUT_STEALTHLINK_TYPES
     mtsStealthTool StealthTool;
     mtsStealthFrame StealthFrame;
+#endif
     prmPositionCartesianGet prmPos;
     mtsFrm3 mtsFrm;
     mtsDouble predictedAccuracy;
@@ -115,6 +121,7 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
     bool debug = false;
     bool didOutput = false;
     mtsExecutionResult result;
+#ifndef SAW_MEDTRONIC_WITHOUT_STEALTHLINK_TYPES
     result = Stealthlink.GetTool(StealthTool);
     if (!result.IsOK()) {
         std::cout << "Stealthlink.GetTool() failed: " << result << std::endl;
@@ -137,6 +144,7 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
             std::cout << "Frame " << StealthFrame.GetName() << ": " << StealthFrame.GetFrame().Translation() << "; ";
         didOutput = true;
     }
+#endif // SAW_MEDTRONIC_WITHOUT_STEALTHLINK_TYPES
 
     if (Pointer.GetPositionCartesian.IsValid()) {
         result = Pointer.GetPositionCartesian(prmPos);

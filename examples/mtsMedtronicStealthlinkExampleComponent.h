@@ -7,7 +7,7 @@
   Author(s):  Peter Kazanzides, Anton Deguet
   Created on: 2011-07-14
 
-  (C) Copyright 2011 Johns Hopkins University (JHU), All Rights Reserved.
+  (C) Copyright 2011-2012 Johns Hopkins University (JHU), All Rights Reserved.
 
 --- begin cisst license - do not edit ---
 
@@ -22,6 +22,9 @@ http://www.cisst.org/cisst/license.txt.
 
 #ifndef _mtsMedtronicStealthlinkExampleComponent_h
 #define _mtsMedtronicStealthlinkExampleComponent_h
+
+// define to not use any medtronic specific payloads (defined in mtsMedtronicStealthlinkTypes)
+// #define SAW_MEDTRONIC_WITHOUT_STEALTHLINK_TYPES
 
 class mtsMedtronicStealthlinkExampleComponent: public mtsTaskPeriodic
 {

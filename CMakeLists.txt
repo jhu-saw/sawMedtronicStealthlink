@@ -12,15 +12,7 @@
 #
 # --- end cisst license ---
 
-# To find FindStealthlink.cmake
-set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR}/code)
+project (sawMedtronicStealthlink)
 
-find_package (Stealthlink REQUIRED)
-
-if (Stealthlink_FOUND)
-  include_directories (${CMAKE_CURRENT_BINARY_DIR} ${Stealthlink_INCLUDE_DIRS})
-  add_subdirectory (code)
-  add_subdirectory (examples)
-else (Stealthlink_FOUND)
-  message (SEND_ERROR "code in ${CMAKE_CURRENT_SOURCE_DIR} requires Stealthlink.")
-endif (Stealthlink_FOUND)
+add_subdirectory (code)
+add_subdirectory (examples)

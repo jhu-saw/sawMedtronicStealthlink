@@ -56,7 +56,7 @@ if (cisst_FOUND_AS_REQUIRED)
                  mtsMedtronicStealthlink_AsCL_Stuff.cpp
                  mtsMedtronicStealthlink_AsCL_Stuff.h
                  )
-
+    set_property (TARGET sawMedtronicStealthlink PROPERTY FOLDER "sawMedtronicStealthlink")
     target_link_libraries (sawMedtronicStealthlink ${Stealthlink_LIBRARIES})
 
     if (WIN32)

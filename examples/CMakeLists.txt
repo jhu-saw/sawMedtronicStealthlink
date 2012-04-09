@@ -1,7 +1,7 @@
 #
 # $Id$
 #
-# (C) Copyright 2011 Johns Hopkins University (JHU), All Rights Reserved.
+# (C) Copyright 2011-2012 Johns Hopkins University (JHU), All Rights Reserved.
 #
 # --- begin cisst license - do not edit ---
 #
@@ -39,6 +39,7 @@ if (cisst_FOUND)
                     mtsMedtronicStealthlinkExampleComponent.h
                     mtsMedtronicStealthlinkExampleComponent.cpp
                     main.cpp)
+    set_property (TARGET sawMedtronicStealthlinkExample PROPERTY FOLDER "sawMedtronicStealthlink")
     target_link_libraries (sawMedtronicStealthlinkExample
                            sawMedtronicStealthlink ${sawMedtronicStealthlink_LIBRARIES})
     cisst_target_link_libraries (sawMedtronicStealthlinkExample ${REQUIRED_CISST_LIBRARIES})
@@ -47,6 +48,7 @@ if (cisst_FOUND)
     if (CISST_MTS_HAS_ICE)
       add_executable (sawMedtronicStealthlinkExampleServer
                       mainServer.cpp)
+      set_property (TARGET sawMedtronicStealthlinkExampleServer PROPERTY FOLDER "sawMedtronicStealthlink")
       target_link_libraries (sawMedtronicStealthlinkExampleServer
                              sawMedtronicStealthlink ${sawMedtronicStealthlink_LIBRARIES})
       cisst_target_link_libraries (sawMedtronicStealthlinkExampleServer ${REQUIRED_CISST_LIBRARIES})
@@ -55,6 +57,7 @@ if (cisst_FOUND)
                       mtsMedtronicStealthlinkExampleComponent.h
                       mtsMedtronicStealthlinkExampleComponent.cpp
                       mainClient.cpp)
+      set_property (TARGET sawMedtronicStealthlinkExampleClient PROPERTY FOLDER "sawMedtronicStealthlink")
       target_link_libraries (sawMedtronicStealthlinkExampleClient
                              sawMedtronicStealthlink ${sawMedtronicStealthlink_LIBRARIES})
       cisst_target_link_libraries (sawMedtronicStealthlinkExampleClient ${REQUIRED_CISST_LIBRARIES})

@@ -23,7 +23,13 @@ http://www.cisst.org/cisst/license.txt.
 #include <sawMedtronicStealthlink/mtsMedtronicStealthlink.h>
 
 // Stealthlink definitions
+#ifdef CISST_HAS_STEALTHLINK
+#if (CISST_OS == CISST_WINDOWS)
+#include <GRI.h>
+#else
 #include <GRI_Protocol/GRI.h>
+#endif
+#endif
 
 CMN_IMPLEMENT_SERVICES(mtsStealthTool);
 CMN_IMPLEMENT_SERVICES(mtsStealthFrame);

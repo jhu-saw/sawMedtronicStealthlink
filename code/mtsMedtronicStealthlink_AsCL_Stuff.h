@@ -21,7 +21,13 @@ http://www.cisst.org/cisst/license.txt.
 #ifndef _mtsMedtronicStealthlink_AsCL_Stuff_h
 #define _mtsMedtronicStealthlink_AsCL_Stuff_h
 
+#ifdef CISST_HAS_STEALTHLINK
+#if (CISST_OS == CISST_WINDOWS)
+#include <AsCL_Base_Stuff.h>
+#else
 #include <AsCL/AsCL_Base_Stuff.h>
+#endif
+#endif
 
 class osaStopwatch;
 

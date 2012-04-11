@@ -19,8 +19,15 @@ http://www.cisst.org/cisst/license.txt.
 */
 
 
+
 // Stealthlink definitions
+#ifdef CISST_HAS_STEALTHLINK
+#if (CISST_OS == CISST_WINDOWS)
+#include <GRI.h>
+#else
 #include <GRI_Protocol/GRI.h>
+#endif
+#endif
 
 #include <sawMedtronicStealthlink/mtsMedtronicStealthlink.h>
 
@@ -37,7 +44,14 @@ http://www.cisst.org/cisst/license.txt.
 #endif
 
 // Stealthlink include files
+//#ifdef CISST_HAS_STEALTHLINK
+#if (CISST_OS == CISST_WINDOWS)
+#include <AsCL_Client.h>
+#else
 #include <AsCL/AsCL_Client.h>
+#endif
+//#endif
+
 #include "mtsMedtronicStealthlink_AsCL_Stuff.h"
 
 #ifdef sawMedtronicStealthlink_IS_SIMULATOR

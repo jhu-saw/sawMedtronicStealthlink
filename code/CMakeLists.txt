@@ -36,6 +36,12 @@ if (cisst_FOUND_AS_REQUIRED)
     mark_as_advanced (SAW_MedtronicStealthlink_SIMULATOR)
     set (sawMedtronicStealthlink_IS_SIMULATOR ${SAW_MedtronicStealthlink_SIMULATOR})
 
+	option (CISST_HAS_STEALTHLINK "Is MedtronicStealthlink available?" ON)
+	mark_as_advanced (CISST_HAS_STEALTHLINK)
+	if (CISST_HAS_STEALTHLINK)
+		add_definitions (-DCISST_HAS_STEALTHLINK)
+	endif (CISST_HAS_STEALTHLINK)
+	
     # add definition for code
     if (sawMedtronicStealthlink_IS_SIMULATOR)
       add_definitions (-DsawMedtronicStealthlink_IS_SIMULATOR)
@@ -62,8 +68,11 @@ if (cisst_FOUND_AS_REQUIRED)
     if (WIN32)
       target_link_libraries (sawMedtronicStealthlink ws2_32.lib)
       set (sawMedtronicStealthlink_LIBRARIES ${sawMedtronicStealthlink_LIBRARIES} ws2_32.lib)
-      set (CMAKE_MODULE_LINKER_FLAGS "${CMAKE_MODULE_LINKER_FLAGS} /NODEFAULTLIB:msvcprt.lib /NODEFAULTLIB:LIBCMT.lib")
-    endif (WIN32)
+	  set (CMAKE_SHARED_LINKER_FLAGS_RELEASE        "${CMAKE_SHARED_LINKER_FLAGS_RELEASE}         /NODEFAULTLIB:msvcprt.lib /NODEFAULTLIB:LIBCMT.lib /ignore:4049 /ignore:4217")
+	  set (CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL     "${CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL}      /NODEFAULTLIB:msvcprt.lib /NODEFAULTLIB:LIBCMT.lib /ignore:4049 /ignore:4217")
+	  set (CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO}  /NODEFAULTLIB:msvcprt.lib /NODEFAULTLIB:LIBCMT.lib /ignore:4049 /ignore:4217")
+	  set (CMAKE_SHARED_LINKER_FLAGS_DEBUG          "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}           /NODEFAULTLIB:msvcprtd.lib /NODEFAULTLIB:LIBCMTD.lib /ignore:4049 /ignore:4217")
+	endif (WIN32)
 
     cisst_target_link_libraries (sawMedtronicStealthlink ${REQUIRED_CISST_LIBRARIES})
 
@@ -86,6 +95,7 @@ if (cisst_FOUND_AS_REQUIRED)
              DESTINATION "${CISST_CMAKE_INSTALL_SUFFIX}/saw")
 
   else (Stealthlink_FOUND)
+	option (CISST_HAS_STEALTHLINK "Is MedtronicStealthlink available?" OFF)
     message (SEND_ERROR "code in ${CMAKE_CURRENT_SOURCE_DIR} requires Stealthlink.")
   endif (Stealthlink_FOUND)
 

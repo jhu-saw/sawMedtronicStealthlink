@@ -21,6 +21,13 @@ http://www.cisst.org/cisst/license.txt.
 
 
 // Stealthlink definitions
+#include <sawMedtronicStealthlink/mtsMedtronicStealthlink.h>
+
+#include <cisstCommon/cmnPortability.h>
+#include <cisstCommon/cmnXMLPath.h>
+#include <cisstMultiTask/mtsFixedSizeVectorTypes.h>
+#include <cisstMultiTask/mtsInterfaceProvided.h>
+
 #ifdef CISST_HAS_STEALTHLINK
 #if (CISST_OS == CISST_WINDOWS)
 #include <GRI.h>
@@ -28,13 +35,6 @@ http://www.cisst.org/cisst/license.txt.
 #include <GRI_Protocol/GRI.h>
 #endif
 #endif
-
-#include <sawMedtronicStealthlink/mtsMedtronicStealthlink.h>
-
-#include <cisstCommon/cmnPortability.h>
-#include <cisstCommon/cmnXMLPath.h>
-#include <cisstMultiTask/mtsFixedSizeVectorTypes.h>
-#include <cisstMultiTask/mtsInterfaceProvided.h>
 
 #ifdef CISST_HAS_STEALTHLINK
 #if (CISST_OS == CISST_WINDOWS)

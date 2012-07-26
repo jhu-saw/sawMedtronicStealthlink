@@ -27,21 +27,27 @@ if (cisst_FOUND_AS_REQUIRED)
   include (${CISST_USE_FILE})
 
   set (CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${CMAKE_CURRENT_SOURCE_DIR})
-  find_package (Stealthlink REQUIRED)
+  find_package (Stealthlink )
 
-  if (Stealthlink_FOUND)
+  find_package (Stealthlink2 )
 
+  if (Stealthlink_FOUND OR Stealthlink2_FOUND)
+
+    if (Stealthlink_FOUND AND Stealthlink2_FOUND)
+        option (CISST_HAS_STEALTHLINK "Is MedtronicStealthlink available?" OFF)
+            message (SEND_ERROR "Only one version of Stealthlink is support at a time.  Please select the locations for only one version.")
+    endif (Stealthlink_FOUND AND Stealthlink2_FOUND)
     # create alias for code and cmake configured file
     option (SAW_MedtronicStealthlink_SIMULATOR "Wrappers for Medtronic StealthLink simulator (build instead of real wrapper which requires binaries from Medtronic)" OFF)
     mark_as_advanced (SAW_MedtronicStealthlink_SIMULATOR)
     set (sawMedtronicStealthlink_IS_SIMULATOR ${SAW_MedtronicStealthlink_SIMULATOR})
 
-	option (CISST_HAS_STEALTHLINK "Is MedtronicStealthlink available?" ON)
-	mark_as_advanced (CISST_HAS_STEALTHLINK)
-	if (CISST_HAS_STEALTHLINK)
-		add_definitions (-DCISST_HAS_STEALTHLINK)
-	endif (CISST_HAS_STEALTHLINK)
-	
+    option (CISST_HAS_STEALTHLINK "Is MedtronicStealthlink available?" ON)
+    mark_as_advanced (CISST_HAS_STEALTHLINK)
+    if (CISST_HAS_STEALTHLINK)
+        add_definitions (-DCISST_HAS_STEALTHLINK)
+    endif (CISST_HAS_STEALTHLINK)
+    
     # add definition for code
     if (sawMedtronicStealthlink_IS_SIMULATOR)
       add_definitions (-DsawMedtronicStealthlink_IS_SIMULATOR)
@@ -49,30 +55,50 @@ if (cisst_FOUND_AS_REQUIRED)
 
     set (sawMedtronicStealthlink_INCLUDE_DIR "${sawMedtronicStealthlink_SOURCE_DIR}/include")
     set (sawMedtronicStealthlink_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
+
+    if(Stealthlink_FOUND)
     set (sawMedtronicStealthlink_LIBRARIES sawMedtronicStealthlink ${Stealthlink_LIBRARIES})
+    include_directories (${sawMedtronicStealthlink_INCLUDE_DIR} ${Stealthlink_INCLUDE_DIRS} )
+    set (mtsMedtronicStealthlink_SOURCES mtsMedtronicStealthlink.cpp mtsMedtronicStealthlinkTypes.cpp)
+    set (mtsMedtronicStealthlink_AsCL_Stuff_HEADER mtsMedtronicStealthlink_AsCL_Stuff.h mtsMedtronicStealthlink_AsCL_Stuff.cpp)
+    endif(Stealthlink_FOUND)
+
+    if(Stealthlink2_FOUND)
+    set (sawMedtronicStealthlink_LIBRARIES sawMedtronicStealthlink ${Stealthlink2_LIBRARIES})
+    include_directories (${sawMedtronicStealthlink_INCLUDE_DIR} ${Stealthlink2_INCLUDE_DIRS} )
+    set (mtsMedtronicStealthlink_SOURCES mtsMedtronicStealthlink2.cpp mtsMedtronicStealthlink2Types.cpp)
+    set (mtsMedtronicStealthlink_AsCL_Stuff_HEADER) 
+    endif(Stealthlink2_FOUND)
+
+
     set (sawMedtronicStealthlink_HEADER_DIR "${sawMedtronicStealthlink_SOURCE_DIR}/include/sawMedtronicStealthlink")
 
-    include_directories (${sawMedtronicStealthlink_INCLUDE_DIR} ${Stealthlink_INCLUDE_DIRS})
+    
     add_library (sawMedtronicStealthlink ${IS_SHARED}
                  ${sawMedtronicStealthlink_HEADER_DIR}/sawMedtronicStealthlinkExport.h
-                 mtsMedtronicStealthlink.cpp
+                 ${mtsMedtronicStealthlink_SOURCES}
                  ${sawMedtronicStealthlink_HEADER_DIR}/mtsMedtronicStealthlink.h
                  ${sawMedtronicStealthlink_HEADER_DIR}/mtsMedtronicStealthlinkTypes.h
-                 mtsMedtronicStealthlinkTypes.cpp
-                 mtsMedtronicStealthlink_AsCL_Stuff.cpp
-                 mtsMedtronicStealthlink_AsCL_Stuff.h
+                 ${mtsMedtronicStealthlink_AsCL_Stuff_HEADER}
                  )
     set_property (TARGET sawMedtronicStealthlink PROPERTY FOLDER "sawMedtronicStealthlink")
-    target_link_libraries (sawMedtronicStealthlink ${Stealthlink_LIBRARIES})
+
+    if(Stealthlink_FOUND)
+        target_link_libraries (sawMedtronicStealthlink ${Stealthlink_LIBRARIES})
+    endif(Stealthlink_FOUND)
+
+    if(Stealthlink2_FOUND)
+        target_link_libraries (sawMedtronicStealthlink ${Stealthlink2_LIBRARIES})
+    endif(Stealthlink2_FOUND)
 
     if (WIN32)
       target_link_libraries (sawMedtronicStealthlink ws2_32.lib)
       set (sawMedtronicStealthlink_LIBRARIES ${sawMedtronicStealthlink_LIBRARIES} ws2_32.lib)
-	  set (CMAKE_SHARED_LINKER_FLAGS_RELEASE        "${CMAKE_SHARED_LINKER_FLAGS_RELEASE}         /NODEFAULTLIB:msvcprt.lib /NODEFAULTLIB:LIBCMT.lib /ignore:4049 /ignore:4217")
-	  set (CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL     "${CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL}      /NODEFAULTLIB:msvcprt.lib /NODEFAULTLIB:LIBCMT.lib /ignore:4049 /ignore:4217")
-	  set (CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO}  /NODEFAULTLIB:msvcprt.lib /NODEFAULTLIB:LIBCMT.lib /ignore:4049 /ignore:4217")
-	  set (CMAKE_SHARED_LINKER_FLAGS_DEBUG          "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}           /NODEFAULTLIB:msvcprtd.lib /NODEFAULTLIB:LIBCMTD.lib /ignore:4049 /ignore:4217")
-	endif (WIN32)
+      set (CMAKE_SHARED_LINKER_FLAGS_RELEASE        "${CMAKE_SHARED_LINKER_FLAGS_RELEASE}         /NODEFAULTLIB:msvcprt.lib /NODEFAULTLIB:LIBCMT.lib /ignore:4049 /ignore:4217")
+      set (CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL     "${CMAKE_SHARED_LINKER_FLAGS_MINSIZEREL}      /NODEFAULTLIB:msvcprt.lib /NODEFAULTLIB:LIBCMT.lib /ignore:4049 /ignore:4217")
+      set (CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO "${CMAKE_SHARED_LINKER_FLAGS_RELWITHDEBINFO}  /NODEFAULTLIB:msvcprt.lib /NODEFAULTLIB:LIBCMT.lib /ignore:4049 /ignore:4217")
+      set (CMAKE_SHARED_LINKER_FLAGS_DEBUG          "${CMAKE_SHARED_LINKER_FLAGS_DEBUG}           /NODEFAULTLIB:msvcprtd.lib /NODEFAULTLIB:LIBCMTD.lib /ignore:4049 /ignore:4217")
+    endif (WIN32)
 
     cisst_target_link_libraries (sawMedtronicStealthlink ${REQUIRED_CISST_LIBRARIES})
 
@@ -94,10 +120,10 @@ if (cisst_FOUND_AS_REQUIRED)
     install (FILES "${sawMedtronicStealthlink_BINARY_DIR}/sawMedtronicStealthlinkConfig.cmake"
              DESTINATION "${CISST_CMAKE_INSTALL_SUFFIX}/saw")
 
-  else (Stealthlink_FOUND)
-	option (CISST_HAS_STEALTHLINK "Is MedtronicStealthlink available?" OFF)
+  else (Stealthlink_FOUND OR Stealthlink2_FOUND)
+    option (CISST_HAS_STEALTHLINK "Is MedtronicStealthlink available?" OFF)
     message (SEND_ERROR "code in ${CMAKE_CURRENT_SOURCE_DIR} requires Stealthlink.")
-  endif (Stealthlink_FOUND)
+  endif (Stealthlink_FOUND OR Stealthlink2_FOUND)
 
 else (cisst_FOUND_AS_REQUIRED)
   message ("Information: code in ${CMAKE_CURRENT_SOURCE_DIR} will not be compiled, it requires ${REQUIRED_CISST_LIBRARIES}")

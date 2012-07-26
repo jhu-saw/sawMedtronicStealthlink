@@ -93,4 +93,10 @@ public:
     void CheckCallbacks(void);
 };
 
+/*class mtsMedtronicStealthlink_AsCL_Utils: public AsCL_Utils
+{
+
+};*/
+
+
 #endif // _mtsMedtronicStealthlink_AsCL_Stuff_h

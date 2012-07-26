@@ -118,14 +118,20 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
     mtsFrm3 mtsFrm;
     mtsDouble predictedAccuracy;
 
-    bool debug = false;
+    bool debug = true;
     bool didOutput = false;
+    bool getValid = false;
     mtsExecutionResult result;
 #ifndef SAW_MEDTRONIC_WITHOUT_STEALTHLINK_TYPES
     result = Stealthlink.GetTool(StealthTool);
     if (!result.IsOK()) {
         std::cout << "Stealthlink.GetTool() failed: " << result << std::endl;
     }
+    StealthTool.GetValid(getValid);
+    if (!getValid) {
+        std::cout << "Stealthlink.GetTool().GetValid() failed: " << getValid << std::endl;
+    }
+
     if (StealthTool.Valid()) {
         if(debug)
         {
@@ -133,17 +139,24 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
             std::cout << StealthTool.GetFrame().Rotation() << "; ";
         }
         didOutput = true;
-    }
+    }else
+        std::cout << "Stealthlink.Valid() FAILED: " << StealthTool.Valid() << std::endl;
 
     result = Stealthlink.GetFrame(StealthFrame);
     if (!result.IsOK()) {
         std::cout << "Stealthlink.GetFrame() failed: " << result << std::endl;
     }
+    StealthFrame.GetValid(getValid);
+    if (!getValid) {
+        std::cout << "Stealthlink.GetFrame().GetValid failed: " << getValid << std::endl;
+    }
+
     if (StealthFrame.Valid()) {
         if(debug)
             std::cout << "Frame " << StealthFrame.GetName() << ": " << StealthFrame.GetFrame().Translation() << "; ";
         didOutput = true;
-    }
+    }else
+        std::cout << "Stealthlink.GetFrame().Valid() FAILED: " << StealthTool.Valid() << std::endl;
 #endif // SAW_MEDTRONIC_WITHOUT_STEALTHLINK_TYPES
 
     if (Pointer.GetPositionCartesian.IsValid()) {

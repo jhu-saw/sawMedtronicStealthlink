@@ -210,7 +210,6 @@ void mtsMedtronicStealthlink::Configure(const std::string &filename)
     examSubscription->start(*this);
     surgicalPlanSubscription->start(*this);
 
-
 #endif
 }
 
@@ -325,19 +324,12 @@ void mtsMedtronicStealthlink::GetSurgicalPlan(mtsDoubleVec & plan) const
 
 void mtsMedtronicStealthlink::Run(void)
 {
-    ResetAllTools();  // Set all tools invalid
-    if (StealthlinkPresent) {
-#ifndef sawMedtronicStealthlink_IS_SIMULATOR
-        // Get the data from Stealthlink.
-        //all_info info;
-        //this->Client->GetDataForCode(GET_ALL, reinterpret_cast<void*>(&info));
+#ifdef sawMedtronicStealthlink_IS_SIMULATOR
 
-        // set data for "controller" interface (note: this uses non
-        // standard cisst types and should probably be removed later (adeguet1)
-        //ToolData = info.Tool;
-        //FrameData = info.Frame;
-        //RegistrationData = info.Reg;
-#else
+    ResetAllTools();  // Set all tools invalid
+
+    if (StealthlinkPresent) {
+
         // Compute some simulated data
         const ToolsContainer::const_iterator firstTool = Tools.begin();
         if (firstTool != Tools.end()) {
@@ -364,7 +356,7 @@ void mtsMedtronicStealthlink::Run(void)
             simulatedTool.valid = true;
             ToolData = simulatedTool;
         }
-#endif
+
         // update tool interfaces data
         if (ToolData.Valid()) {
             if (!CurrentTool || (CurrentTool->GetStealthName() != ToolData.GetName())) {
@@ -389,18 +381,6 @@ void mtsMedtronicStealthlink::Run(void)
             }
             // Get tool tip calibration if it is invalid or has changed
             if ((strcmp(ToolData.GetName(), ProbeCal.GetName()) != 0) || !ProbeCal.Valid()) {
-#ifndef sawMedtronicStealthlink_IS_SIMULATOR
-                //probe_calibration probe_cal;
-                //this->Client->GetDataForCode(GET_PROBE_CALIBRATION,
-                //                             reinterpret_cast<void*>(&probe_cal));
-                //ProbeCal = probe_cal;
-                
-                std::cout << "Got probe cal " << ToolData.GetName() << std::endl;
-                std::cout << "   probe cal " << ProbeCal.GetName() << std::endl;
-                std::cout << "   tip " << ProbeCal.GetTip() << std::endl;
-                std::cout << "   hind " << ProbeCal.GetHind() << std::endl;
-                std::cout << "   valid " << ProbeCal.Valid() << std::endl;
-#endif
             }else
             {
                 std::cout << "did not get got probe cal " << ToolData.GetName() << std::endl;
@@ -423,8 +403,9 @@ void mtsMedtronicStealthlink::Run(void)
             }
         }
 
+
         // update frame interface data
-      if (FrameData.Valid()) {
+        if (FrameData.Valid()) {
             if (!CurrentFrame || (CurrentFrame->GetStealthName() != FrameData.GetName())) {
                 CurrentFrame = FindTool(FrameData.GetName());
                 if (!CurrentFrame) {
@@ -447,19 +428,39 @@ void mtsMedtronicStealthlink::Run(void)
             }
         }
 
+
         // update registration interface data
         this->RegistrationMember.Transformation = RegistrationData.GetFrame();
         this->RegistrationMember.Valid = RegistrationData.Valid();
         this->RegistrationMember.PredictedAccuracy = RegistrationData.GetAccuracy();
         this->RegistrationMember.PredictedAccuracy.SetValid(RegistrationData.Valid());
+
+
     }
+#endif
+
+
+    if (StealthlinkPresent) {
+        try {
+            this->StealthServerProxy->run_one();
+        }
+        catch (std::exception e) {
+            CMN_LOG_CLASS_RUN_ERROR << "Configure: Caught exception while listening to Stealth server: " << e.what() << std::endl;
+        }
+        catch (...) {
+            CMN_LOG_CLASS_RUN_ERROR << "Configure: Caught unknown exception while listening to Stealth server" << std::endl;
+        }
+    }
+
+
     ProcessQueuedCommands();
-    //this->Utils->CheckCallbacks(); //not in SL2?
+
 }
 
 
 void mtsMedtronicStealthlink::Cleanup(void)
 {
+    this->StealthServerProxy->disconnect();
     ToolsContainer::iterator it;
     const ToolsContainer::iterator end = Tools.end();
     for (it = Tools.begin(); it != end; it++) {
@@ -467,6 +468,12 @@ void mtsMedtronicStealthlink::Cleanup(void)
         *it = 0;
     }
     Tools.clear();
+
+    if (this->StealthServerProxy) {
+        delete this->StealthServerProxy;
+        this->StealthServerProxy = 0;
+    }
+
     if (this->Client) {
         delete this->Client;
         this->Client = 0;
@@ -483,12 +490,101 @@ void mtsMedtronicStealthlink::Cleanup(void)
 void mtsMedtronicStealthlink::operator()(MNavStealthLink::Instrument& instrument_in){
     ToolData = instrument_in;
     ProbeCal = instrument_in;
+
+    // update tool interfaces data
+    if (ToolData.Valid()) {
+        if (!CurrentTool || (CurrentTool->GetStealthName() != ToolData.GetName())) {
+            CurrentTool = FindTool(ToolData.GetName());
+            if (!CurrentTool) {
+                CMN_LOG_CLASS_INIT_VERBOSE << "Run: adding new tool \""
+                                           << ToolData.GetName() << "\"" << std::endl;
+                CurrentTool = AddTool(ToolData.GetName(), ToolData.GetName());
+            }
+            if (CurrentTool) {
+                CMN_LOG_CLASS_RUN_VERBOSE << "Run: current tool is now \""
+                                          << CurrentTool->GetInterfaceName() << "\"" << std::endl;
+            } else {
+                CMN_LOG_CLASS_RUN_ERROR << "Run: unable to add provided interface for new tool \""
+                                        << ToolData.GetName() << "\"" << std::endl;
+            }
+        }
+        // rely on older interface to retrieve tool information
+        if (CurrentTool) {
+            CurrentTool->MarkerPosition.Position() = ToolData.GetFrame();
+            CurrentTool->MarkerPosition.SetValid(true);
+        }
+        // Get tool tip calibration if it is invalid or has changed
+        if ((strcmp(ToolData.GetName(), ProbeCal.GetName()) != 0) || !ProbeCal.Valid()) {
+
+
+            std::cout << "Got probe cal " << ToolData.GetName() << std::endl;
+            std::cout << "   probe cal " << ProbeCal.GetName() << std::endl;
+            std::cout << "   tip " << ProbeCal.GetTip() << std::endl;
+            std::cout << "   hind " << ProbeCal.GetHind() << std::endl;
+            std::cout << "   valid " << ProbeCal.Valid() << std::endl;
+
+        }else
+        {
+            std::cout << "did not get got probe cal " << ToolData.GetName() << std::endl;
+        }
+        // If we have valid data, then store the result
+        if (CurrentTool && ProbeCal.Valid() &&
+            (strcmp(ToolData.GetName(), ProbeCal.GetName()) == 0)) {
+            CurrentTool->TooltipPosition.Position() = vctFrm3(ToolData.GetFrame().Rotation(),
+                                                              ToolData.GetFrame() * ProbeCal.GetTip());
+            CurrentTool->TooltipPosition.SetValid(true);
+        }else
+        {
+            if(!CurrentTool)
+                std::cout << "CurrentTool not valid" << ProbeCal.Valid() << std::endl;
+            if(!ProbeCal.Valid())
+                std::cout << "ProbeCal not valid" << ProbeCal.Valid() << std::endl;
+            if(!(strcmp(ToolData.GetName(), ProbeCal.GetName()) == 0))
+                std::cout << ToolData.GetName() << " does not match " << ProbeCal.GetName() << std::endl;
+
+        }
+    }
+
+
+
 }
 void mtsMedtronicStealthlink::operator()(const MNavStealthLink::Frame& frame_in){
     FrameData = frame_in;
+
+    // update frame interface data
+    if (FrameData.Valid()) {
+        if (!CurrentFrame || (CurrentFrame->GetStealthName() != FrameData.GetName())) {
+            CurrentFrame = FindTool(FrameData.GetName());
+            if (!CurrentFrame) {
+                CMN_LOG_CLASS_INIT_VERBOSE << "Run: adding new tool \""
+                                           << FrameData.GetName() << "\"" << std::endl;
+                CurrentFrame = AddTool(FrameData.GetName(), FrameData.GetName());
+            }
+            if (CurrentFrame) {
+                CMN_LOG_CLASS_RUN_VERBOSE << "Run: current tool is now \""
+                                          << CurrentFrame->GetInterfaceName() << "\"" << std::endl;
+            } else {
+                CMN_LOG_CLASS_RUN_ERROR << "Run: unable to add provided interface for new tool \""
+                                        << FrameData.GetName() << "\"" << std::endl;
+            }
+        }
+        // rely on older interface to retrieve tool information
+        if (CurrentFrame) {
+            CurrentFrame->MarkerPosition.Position() = FrameData.GetFrame();
+            CurrentFrame->MarkerPosition.SetValid(true);
+        }
+    }
+
 }
 void mtsMedtronicStealthlink::operator()(const MNavStealthLink::Registration& registration_in){
     RegistrationData = registration_in;
+
+    // update registration interface data
+    this->RegistrationMember.Transformation = RegistrationData.GetFrame();
+    this->RegistrationMember.Valid = RegistrationData.Valid();
+    this->RegistrationMember.PredictedAccuracy = RegistrationData.GetAccuracy();
+    this->RegistrationMember.PredictedAccuracy.SetValid(RegistrationData.Valid());
+
 }
 void mtsMedtronicStealthlink::operator()(const MNavStealthLink::Exam& exam_in){
     ExamInformationMember.VoxelScale[0] = exam_in.scale[0];

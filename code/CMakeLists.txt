@@ -37,6 +37,7 @@ if (cisst_FOUND_AS_REQUIRED)
         option (CISST_HAS_STEALTHLINK "Is MedtronicStealthlink available?" OFF)
             message (SEND_ERROR "Only one version of Stealthlink is support at a time.  Please select the locations for only one version.")
     endif (Stealthlink_FOUND AND Stealthlink2_FOUND)
+
     # create alias for code and cmake configured file
     option (SAW_MedtronicStealthlink_SIMULATOR "Wrappers for Medtronic StealthLink simulator (build instead of real wrapper which requires binaries from Medtronic)" OFF)
     mark_as_advanced (SAW_MedtronicStealthlink_SIMULATOR)
@@ -46,6 +47,7 @@ if (cisst_FOUND_AS_REQUIRED)
     mark_as_advanced (CISST_HAS_STEALTHLINK)
     if (CISST_HAS_STEALTHLINK)
         add_definitions (-DCISST_HAS_STEALTHLINK)
+        message ("Added -DCISST_HAS_STEALTHLINK")
     endif (CISST_HAS_STEALTHLINK)
     
     # add definition for code

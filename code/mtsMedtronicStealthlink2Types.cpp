@@ -24,11 +24,7 @@ http://www.cisst.org/cisst/license.txt.
 
 // Stealthlink definitions
 #ifdef CISST_HAS_STEALTHLINK
-#if (CISST_OS == CISST_WINDOWS)
-//#include <GRI.h>
-#else
-//#include <GRI_Protocol/GRI.h>
-#endif
+#include <StealthLink/StealthLink.h>
 #endif
 
 CMN_IMPLEMENT_SERVICES(mtsStealthTool);
@@ -60,15 +56,15 @@ void mtsStealthTool::Assign(const mtsStealthTool & that)
     this->Valid() = that.Valid();
 }
 
-/*void mtsStealthTool::Assign(const struct tool & griTool)
+void mtsStealthTool::Assign(const MNavStealthLink::Instrument & griTool)
 {
-    frameConversion(this->XForm, griTool.xform);
-    GeometryError = griTool.geometry_error;
+    frameConversion(this->XForm, griTool.localizer_T_instrument);
+    GeometryError = griTool.geometryError;
     for (int k = 0; k < NAME_LENGTH; k++) {
         Name[k] = griTool.name[k];
     }
-    this->SetValid(griTool.valid);
-}*/
+    this->SetValid(griTool.visibility == MNavStealthLink::Instrument::VISIBLE || griTool.visibility == MNavStealthLink::Instrument::ALMOST_BLOCKED);
+}
 
 void mtsStealthTool::Assign(const prmPositionCartesianGet & that)
 {
@@ -142,13 +138,13 @@ void mtsStealthFrame::Assign(const mtsStealthFrame & that)
     this->Valid() = that.Valid();
 }
 
-/*void mtsStealthFrame::Assign (const struct frame & griFrame)
+void mtsStealthFrame::Assign (const MNavStealthLink::Frame & griFrame)
 {
-    frameConversion(this->XForm, griFrame.xform);
-    GeometryError = griFrame.geometry_error;
+    frameConversion(this->XForm, griFrame.frame_T_localizer);
+    GeometryError = griFrame.geometryError;
     for (int k = 0; k < NAME_LENGTH; k++) Name[k] = griFrame.name[k];
-    this->SetValid(griFrame.valid);
-}*/
+    this->SetValid(griFrame.visibility == MNavStealthLink::Frame::VISIBLE || griFrame.visibility == MNavStealthLink::Instrument::ALMOST_BLOCKED);
+}
 
 void mtsStealthFrame::Assign(const prmPositionCartesianGet & that)
 {
@@ -199,12 +195,12 @@ void mtsStealthRegistration::Assign(const mtsStealthRegistration & that)
     this->Valid() = that.Valid();
 }
 
-/*void mtsStealthRegistration::Assign (const struct registration & griRegistration)
+void mtsStealthRegistration::Assign (const MNavStealthLink::Registration & griRegistration)
 {
-    frameConversion(this->XForm, griRegistration.xform);
-    predictedAccuracy = griRegistration.predicted_accuracy;
-    this->SetValid(griRegistration.valid);
-}*/
+    frameConversion(this->XForm, griRegistration.regExamMM_T_frame);
+    predictedAccuracy = griRegistration.predictedAccuracy;
+    this->SetValid(true);
+}
 
 void mtsStealthRegistration::Assign(const vctFrm3 & tmpFrm, const double & tmpAccuracy,
                                     const bool & tmpValid)
@@ -251,13 +247,14 @@ void mtsStealthProbeCal::Assign(const mtsStealthProbeCal & that)
     this->Hind = that.Hind;
 }
 
-/*void mtsStealthProbeCal::Assign (const struct probe_calibration & griProbeCal)
+void mtsStealthProbeCal::Assign (MNavStealthLink::Instrument & griProbeCal)
 {
-    for (int k = 0; k < NAME_LENGTH; k++) Name[k] = griProbeCal.probe_name[k];
-    this->SetValid(griProbeCal.valid);
-    Tip = vct3(griProbeCal.tip[0],griProbeCal.tip[1],griProbeCal.tip[2]);
-    Hind = vct3(griProbeCal.hind[0],griProbeCal.hind[1],griProbeCal.hind[2]);
-}*/
+    for (int k = 0; k < NAME_LENGTH; k++) Name[k] = griProbeCal.name[k];
+    this->SetValid(true);
+    MNavStealthLink::InstrumentPosition & current_ProbeCal = griProbeCal.localizerPosition;
+    Tip = vct3(current_ProbeCal.tip[0],current_ProbeCal.tip[1],current_ProbeCal.tip[2]);
+    Hind = vct3(current_ProbeCal.hind[0],current_ProbeCal.hind[1],current_ProbeCal.hind[2]);
+}
 
 std::string mtsStealthProbeCal::ToString(void) const
 {

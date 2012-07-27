@@ -37,6 +37,16 @@ struct frame;
 struct registration;
 struct probe_calibration;
 
+
+namespace MNavStealthLink {
+    class Instrument;
+    class Frame;
+    class Registration;
+    class InstrumentPosition;
+}
+
+
+
 class CISST_EXPORT mtsStealthTool: public mtsGenericObject {
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION, CMN_LOG_LOD_RUN_ERROR);
  private:
@@ -52,8 +62,12 @@ class CISST_EXPORT mtsStealthTool: public mtsGenericObject {
 
     void Assign(const mtsStealthTool & that);
     mtsStealthTool & operator= (const mtsStealthTool & that) { this->Assign(that); return *this; }
+
     void Assign(const struct tool & griTool);
     mtsStealthTool & operator= (const tool & griTool) { this->Assign(griTool); return *this; }
+
+    void Assign(const MNavStealthLink::Instrument & griTool);
+    mtsStealthTool & operator= (const MNavStealthLink::Instrument & griTool) { this->Assign(griTool); return *this; }
 
     void Assign(const prmPositionCartesianGet & that);
     mtsStealthTool & operator= (const prmPositionCartesianGet & that) {this->Assign(that); return *this;}
@@ -80,10 +94,15 @@ class CISST_EXPORT mtsStealthFrame : public mtsGenericObject {
     const vctFrm3 & GetFrame(void) const { return XForm; }
     double GetGeometryError(void) const { return GeometryError; }
     const char * GetName(void) const { return Name; }
+
     void Assign(const mtsStealthFrame & that);
     mtsStealthFrame & operator= (const mtsStealthFrame & that) { this->Assign(that); return *this; }
+
     void Assign(const struct frame & griFrame);
     mtsStealthFrame & operator= (const frame & griFrame) { this->Assign(griFrame); return *this; }
+
+    void Assign(const MNavStealthLink::Frame & griFrame);
+    mtsStealthFrame & operator= (const MNavStealthLink::Frame & griFrame) { this->Assign(griFrame); return *this; }
 
     void Assign(const prmPositionCartesianGet & that);
     mtsStealthFrame & operator= (const prmPositionCartesianGet & that) {this->Assign(that); return *this;}
@@ -108,8 +127,12 @@ class CISST_EXPORT mtsStealthRegistration : public mtsGenericObject {
     double GetAccuracy(void) const { return predictedAccuracy; }
     void Assign(const mtsStealthRegistration & that);
     mtsStealthRegistration & operator= (const mtsStealthRegistration & that) { this->Assign(that); return *this; }
+
     void Assign(const struct registration & griRegistration);
     mtsStealthRegistration & operator= (const registration & griRegistration) { this->Assign(griRegistration); return *this; }
+
+    void Assign(const MNavStealthLink::Registration & griRegistration);
+    mtsStealthRegistration & operator= (const MNavStealthLink::Registration & griRegistration) { this->Assign(griRegistration); return *this; }
 
     void Assign(const vctFrm3 & tmpFrm, const double & tmpAccuracy, const bool & tmpValid);
 
@@ -134,10 +157,16 @@ class CISST_EXPORT mtsStealthProbeCal : public mtsGenericObject {
     const char * GetName(void) const { return Name; }
     const vct3 & GetTip(void) const { return Tip; }
     const vct3 & GetHind(void) const { return Hind; }
+
     void Assign(const mtsStealthProbeCal & that);
     mtsStealthProbeCal & operator= (const mtsStealthProbeCal & that) { this->Assign(that); return *this; }
+
     void Assign (const struct probe_calibration & griProbeCal);
     mtsStealthProbeCal & operator= (const struct probe_calibration & griProbeCal) { this->Assign(griProbeCal); return *this; }
+
+    void Assign (MNavStealthLink::Instrument & griProbeCal);
+    mtsStealthProbeCal & operator= (MNavStealthLink::Instrument & griProbeCal) { this->Assign(griProbeCal); return *this; }
+
     std::string ToString(void) const;
     void ToStream(std::ostream & outputStream) const;
     void ToStreamRaw(std::ostream & outputStream, const char delimiter = ' ',

@@ -35,14 +35,21 @@ http://www.cisst.org/cisst/license.txt.
 // forward declarations of Stealthlink types
 class AsCL_Client;
 class mtsMedtronicStealthlink_AsCL_Utils;
+namespace MNavStealthLink {
+    class StealthServer;
+    class SurgicalPlan;
+    class Exam;
+    template <typename T> class Subscription;
+}
 
 class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskPeriodic
 {
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
  protected:
-
+    template <typename T> friend class MNavStealthLink::Subscription;
     AsCL_Client * Client;
+    MNavStealthLink::StealthServer * StealthServerProxy;
     mtsMedtronicStealthlink_AsCL_Utils * Utils;
 
     // State data
@@ -109,6 +116,23 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskPeriodic
     Tool * AddTool(const std::string & stealthName, const std::string & interfaceName);
 
     void Init(void);
+
+    // Stealthlink 2.0 callbacks
+
+    void operator()(MNavStealthLink::Instrument& instrument_in);
+    void operator()(const MNavStealthLink::Frame& frame_in);
+    void operator()(const MNavStealthLink::Registration& registration_in);
+    void operator()(const MNavStealthLink::Exam& exam_in);
+    void operator()(MNavStealthLink::SurgicalPlan& surgicalPlan_in);
+
+    //Stealthlink 2.0 Subscriptions
+
+    MNavStealthLink::Subscription<MNavStealthLink::Instrument> * instrumentSubscription;
+    MNavStealthLink::Subscription<MNavStealthLink::Frame> * frameSubscription;
+    MNavStealthLink::Subscription<MNavStealthLink::Registration> * registrationSubscription;
+    MNavStealthLink::Subscription<MNavStealthLink::Exam> * examSubscription;
+    MNavStealthLink::Subscription<MNavStealthLink::SurgicalPlan> * surgicalPlanSubscription;
+
 
  public:
     mtsMedtronicStealthlink(const std::string & taskName, const double & periodInSeconds);

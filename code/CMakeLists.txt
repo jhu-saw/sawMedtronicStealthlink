@@ -58,28 +58,26 @@ if (cisst_FOUND_AS_REQUIRED)
     set (sawMedtronicStealthlink_INCLUDE_DIR "${sawMedtronicStealthlink_SOURCE_DIR}/include")
     set (sawMedtronicStealthlink_LIBRARY_DIR "${LIBRARY_OUTPUT_PATH}")
 
+    set (sawMedtronicStealthlink_HEADER_DIR "${sawMedtronicStealthlink_SOURCE_DIR}/include/sawMedtronicStealthlink")
+
     if(Stealthlink_FOUND)
     set (sawMedtronicStealthlink_LIBRARIES sawMedtronicStealthlink ${Stealthlink_LIBRARIES})
     include_directories (${sawMedtronicStealthlink_INCLUDE_DIR} ${Stealthlink_INCLUDE_DIRS} )
-    set (mtsMedtronicStealthlink_SOURCES mtsMedtronicStealthlink.cpp mtsMedtronicStealthlinkTypes.cpp)
+    set (mtsMedtronicStealthlink_SOURCES mtsMedtronicStealthlink.cpp mtsMedtronicStealthlinkTypes.cpp ${sawMedtronicStealthlink_HEADER_DIR}/mtsMedtronicStealthlink.h)
     set (mtsMedtronicStealthlink_AsCL_Stuff_HEADER mtsMedtronicStealthlink_AsCL_Stuff.h mtsMedtronicStealthlink_AsCL_Stuff.cpp)
     endif(Stealthlink_FOUND)
 
     if(Stealthlink2_FOUND)
     set (sawMedtronicStealthlink_LIBRARIES sawMedtronicStealthlink ${Stealthlink2_LIBRARIES})
     include_directories (${sawMedtronicStealthlink_INCLUDE_DIR} ${Stealthlink2_INCLUDE_DIRS} )
-    set (mtsMedtronicStealthlink_SOURCES mtsMedtronicStealthlink2.cpp mtsMedtronicStealthlink2Types.cpp)
+    set (mtsMedtronicStealthlink_SOURCES mtsMedtronicStealthlink2.cpp mtsMedtronicStealthlink2Types.cpp ${sawMedtronicStealthlink_HEADER_DIR}/mtsMedtronicStealthlink2.h)
     set (mtsMedtronicStealthlink_AsCL_Stuff_HEADER) 
     endif(Stealthlink2_FOUND)
-
-
-    set (sawMedtronicStealthlink_HEADER_DIR "${sawMedtronicStealthlink_SOURCE_DIR}/include/sawMedtronicStealthlink")
 
     
     add_library (sawMedtronicStealthlink ${IS_SHARED}
                  ${sawMedtronicStealthlink_HEADER_DIR}/sawMedtronicStealthlinkExport.h
                  ${mtsMedtronicStealthlink_SOURCES}
-                 ${sawMedtronicStealthlink_HEADER_DIR}/mtsMedtronicStealthlink.h
                  ${sawMedtronicStealthlink_HEADER_DIR}/mtsMedtronicStealthlinkTypes.h
                  ${mtsMedtronicStealthlink_AsCL_Stuff_HEADER}
                  )

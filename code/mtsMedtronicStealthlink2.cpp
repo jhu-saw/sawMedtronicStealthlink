@@ -4,7 +4,7 @@
 /*
   $Id: mtsMedtronicStealthlink.cpp 3597 2012-04-12 01:32:14Z wliu25 $
 
-  Author(s): Peter Kazanzides, Anton Deguet
+  Author(s): Peter Kazanzides, Anton Deguet, Daniel Mirota
   Created on: 2006
 
   (C) Copyright 2007-2011 Johns Hopkins University (JHU), All Rights Reserved.
@@ -21,7 +21,7 @@ http://www.cisst.org/cisst/license.txt.
 
 
 // Stealthlink definitions
-#include <sawMedtronicStealthlink/mtsMedtronicStealthlink.h>
+#include <sawMedtronicStealthlink/mtsMedtronicStealthlink2.h>
 
 #include <cisstCommon/cmnPortability.h>
 #include <cisstCommon/cmnXMLPath.h>
@@ -43,7 +43,7 @@ http://www.cisst.org/cisst/license.txt.
 void AsCL_MSG(int CMN_UNUSED(verbose_level), char * CMN_UNUSED(msg), ...) {}
 #endif
 
-CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsMedtronicStealthlink, mtsTaskPeriodic, mtsTaskPeriodicConstructorArg)
+CMN_IMPLEMENT_SERVICES_DERIVED(mtsMedtronicStealthlink, mtsTaskFromSignal)
 
 void mtsMedtronicStealthlink::Init(void)
 {
@@ -59,61 +59,51 @@ void mtsMedtronicStealthlink::Init(void)
     SurgicalPlan.SetSize(6);
 
     // Stealth Tool -- the position of the tracked tool, as a frame
-    StateTable.AddData(ToolData, "ToolData");
+    ToolDataStateTable.AddData(ToolData, "ToolData");
     // Stealth Frame -- the position of the base frame, as a frame
-    StateTable.AddData(FrameData, "FrameData");
+    FrameDataStateTable.AddData(FrameData, "FrameData");
     // Stealth Registration
-    StateTable.AddData(RegistrationData, "RegistrationData");
+    RegistrationDataStateTable.AddData(RegistrationData, "RegistrationData");
     // Stealth Tool Calibration
-    StateTable.AddData(ProbeCal, "ProbeCalibration");
+    ProbeCalStateTable.AddData(ProbeCal, "ProbeCalibration");
 
     mtsInterfaceProvided * provided = AddInterfaceProvided("Controller");
     if (provided) {
-        provided->AddCommandReadState(StateTable, ToolData, "GetTool");
-        provided->AddCommandReadState(StateTable, FrameData, "GetFrame");
-        provided->AddCommandReadState(StateTable, RegistrationData, "GetRegistration");
-        provided->AddCommandReadState(StateTable, ProbeCal, "GetProbeCalibration");
+        provided->AddCommandReadState(ToolDataStateTable, ToolData, "GetTool");
+        provided->AddCommandReadState(FrameDataStateTable, FrameData, "GetFrame");
+        provided->AddCommandReadState(RegistrationDataStateTable, RegistrationData, "GetRegistration");
+        provided->AddCommandReadState(ProbeCalStateTable, ProbeCal, "GetProbeCalibration");
         provided->AddCommandVoid(&mtsMedtronicStealthlink::RequestSurgicalPlan, this, "RequestSurgicalPlan");
         provided->AddCommandRead(&mtsMedtronicStealthlink::GetSurgicalPlan, this, "GetSurgicalPlan", SurgicalPlan);
     }
 
     // Add interface for registration, ideally we should standardize such interface commands/payloads
     // maybe we should create a separate state table for registration?  Would only advance if changed.
-    StateTable.AddData(RegistrationMember.Transformation, "RegistrationTransformation");
-    StateTable.AddData(RegistrationMember.Valid, "RegistrationValid");
-    StateTable.AddData(RegistrationMember.PredictedAccuracy, "RegistrationPredictedAccuracy");
+    RegistrationStateTable.AddData(RegistrationMember.Transformation, "RegistrationTransformation");
+    RegistrationStateTable.AddData(RegistrationMember.Valid, "RegistrationValid");
+    RegistrationStateTable.AddData(RegistrationMember.PredictedAccuracy, "RegistrationPredictedAccuracy");
     provided = AddInterfaceProvided("Registration");
     if (provided) {
-        provided->AddCommandReadState(StateTable, RegistrationMember.Transformation, "GetTransformation");
-        provided->AddCommandReadState(StateTable, RegistrationMember.Valid, "GetValid");
-        provided->AddCommandReadState(StateTable, RegistrationMember.PredictedAccuracy, "GetPredictedAccuracy");
+        provided->AddCommandReadState(RegistrationStateTable, RegistrationMember.Transformation, "GetTransformation");
+        provided->AddCommandReadState(RegistrationStateTable, RegistrationMember.Valid, "GetValid");
+        provided->AddCommandReadState(RegistrationStateTable, RegistrationMember.PredictedAccuracy, "GetPredictedAccuracy");
     }
 
     // Add interface for exam information
-    StateTable.AddData(ExamInformationMember.VoxelScale, "ExamInformationVoxelScale");
-    StateTable.AddData(ExamInformationMember.Size, "ExamInformationSize");
-    StateTable.AddData(ExamInformationMember.Valid, "ExamInformationValid");
+    ExamInformationStateTable.AddData(ExamInformationMember.VoxelScale, "ExamInformationVoxelScale");
+    ExamInformationStateTable.AddData(ExamInformationMember.Size, "ExamInformationSize");
+    ExamInformationStateTable.AddData(ExamInformationMember.Valid, "ExamInformationValid");
     provided = AddInterfaceProvided("ExamInformation");
     if (provided) {
         provided->AddCommandVoid(&mtsMedtronicStealthlink::RequestExamInformation, this, "RequestExamInformation");
-        provided->AddCommandReadState(StateTable, ExamInformationMember.VoxelScale, "GetVoxelScale");
-        provided->AddCommandReadState(StateTable, ExamInformationMember.Size, "GetSize");
-        provided->AddCommandReadState(StateTable, ExamInformationMember.Valid, "GetValid");
+        provided->AddCommandReadState(ExamInformationStateTable, ExamInformationMember.VoxelScale, "GetVoxelScale");
+        provided->AddCommandReadState(ExamInformationStateTable, ExamInformationMember.Size, "GetSize");
+        provided->AddCommandReadState(ExamInformationStateTable, ExamInformationMember.Valid, "GetValid");
     }
 }
 
-mtsMedtronicStealthlink::mtsMedtronicStealthlink(const std::string & taskName, const double & periodInSeconds) :
-    mtsTaskPeriodic(taskName, periodInSeconds, false, 1000),
-    StealthlinkPresent(false),
-    CurrentTool(0),
-    CurrentFrame(0)
-{
-    Init();
-}
-
-
-mtsMedtronicStealthlink::mtsMedtronicStealthlink(const mtsTaskPeriodicConstructorArg &arg) :
-    mtsTaskPeriodic(arg),
+mtsMedtronicStealthlink::mtsMedtronicStealthlink(const std::string & taskName) :
+    mtsTaskFromSignal(taskName),
     StealthlinkPresent(false),
     CurrentTool(0),
     CurrentFrame(0)
@@ -324,142 +314,49 @@ void mtsMedtronicStealthlink::GetSurgicalPlan(mtsDoubleVec & plan) const
 
 void mtsMedtronicStealthlink::Run(void)
 {
-#ifdef sawMedtronicStealthlink_IS_SIMULATOR
-
-    ResetAllTools();  // Set all tools invalid
-
-    if (StealthlinkPresent) {
-
-        // Compute some simulated data
-        const ToolsContainer::const_iterator firstTool = Tools.begin();
-        if (firstTool != Tools.end()) {
-            tool simulatedTool;
-            for (unsigned int i = 0; i < 3; i++) {
-                for (unsigned int j = 0; j < 3; j++) {
-                    if (i == j) {
-                        simulatedTool.xform[i][j] = 1.0;
-                    } else {
-                        simulatedTool.xform[i][j] = 0.0;
-                    }
-                }
-                simulatedTool.xform[i][3] = static_cast<float>(i);
-            }
-            simulatedTool.geometry_error = 1.11;
-            const std::string toolName = (*firstTool)->GetStealthName();
-            for (unsigned int k = 0; k < NAME_LENGTH; k++) {
-                if (k < toolName.size()) {
-                    simulatedTool.name[k] = toolName[k];
-                } else {
-                    simulatedTool.name[k] = '\0';
-                }
-            }
-            simulatedTool.valid = true;
-            ToolData = simulatedTool;
-        }
-
-        // update tool interfaces data
-        if (ToolData.Valid()) {
-            if (!CurrentTool || (CurrentTool->GetStealthName() != ToolData.GetName())) {
-                CurrentTool = FindTool(ToolData.GetName());
-                if (!CurrentTool) {
-                    CMN_LOG_CLASS_INIT_VERBOSE << "Run: adding new tool \""
-                                               << ToolData.GetName() << "\"" << std::endl;
-                    CurrentTool = AddTool(ToolData.GetName(), ToolData.GetName());
-                }
-                if (CurrentTool) {
-                    CMN_LOG_CLASS_RUN_VERBOSE << "Run: current tool is now \""
-                                              << CurrentTool->GetInterfaceName() << "\"" << std::endl;
-                } else {
-                    CMN_LOG_CLASS_RUN_ERROR << "Run: unable to add provided interface for new tool \""
-                                            << ToolData.GetName() << "\"" << std::endl;
-                }
-            }
-            // rely on older interface to retrieve tool information
-            if (CurrentTool) {
-                CurrentTool->MarkerPosition.Position() = ToolData.GetFrame();
-                CurrentTool->MarkerPosition.SetValid(true);
-            }
-            // Get tool tip calibration if it is invalid or has changed
-            if ((strcmp(ToolData.GetName(), ProbeCal.GetName()) != 0) || !ProbeCal.Valid()) {
-            }else
-            {
-                std::cout << "did not get got probe cal " << ToolData.GetName() << std::endl;
-            }
-            // If we have valid data, then store the result
-            if (CurrentTool && ProbeCal.Valid() &&
-                (strcmp(ToolData.GetName(), ProbeCal.GetName()) == 0)) {
-                CurrentTool->TooltipPosition.Position() = vctFrm3(ToolData.GetFrame().Rotation(),
-                                                                  ToolData.GetFrame() * ProbeCal.GetTip());
-                CurrentTool->TooltipPosition.SetValid(true);
-            }else
-            {
-                if(!CurrentTool)
-                    std::cout << "CurrentTool not valid" << ProbeCal.Valid() << std::endl;
-                if(!ProbeCal.Valid())
-                    std::cout << "ProbeCal not valid" << ProbeCal.Valid() << std::endl;
-                if(!(strcmp(ToolData.GetName(), ProbeCal.GetName()) == 0))
-                    std::cout << ToolData.GetName() << " does not match " << ProbeCal.GetName() << std::endl;
-
-            }
-        }
-
-
-        // update frame interface data
-        if (FrameData.Valid()) {
-            if (!CurrentFrame || (CurrentFrame->GetStealthName() != FrameData.GetName())) {
-                CurrentFrame = FindTool(FrameData.GetName());
-                if (!CurrentFrame) {
-                    CMN_LOG_CLASS_INIT_VERBOSE << "Run: adding new tool \""
-                                               << FrameData.GetName() << "\"" << std::endl;
-                    CurrentFrame = AddTool(FrameData.GetName(), FrameData.GetName());
-                }
-                if (CurrentFrame) {
-                    CMN_LOG_CLASS_RUN_VERBOSE << "Run: current tool is now \""
-                                              << CurrentFrame->GetInterfaceName() << "\"" << std::endl;
-                } else {
-                    CMN_LOG_CLASS_RUN_ERROR << "Run: unable to add provided interface for new tool \""
-                                            << FrameData.GetName() << "\"" << std::endl;
-                }
-            }
-            // rely on older interface to retrieve tool information
-            if (CurrentFrame) {
-                CurrentFrame->MarkerPosition.Position() = FrameData.GetFrame();
-                CurrentFrame->MarkerPosition.SetValid(true);
-            }
-        }
-
-
-        // update registration interface data
-        this->RegistrationMember.Transformation = RegistrationData.GetFrame();
-        this->RegistrationMember.Valid = RegistrationData.Valid();
-        this->RegistrationMember.PredictedAccuracy = RegistrationData.GetAccuracy();
-        this->RegistrationMember.PredictedAccuracy.SetValid(RegistrationData.Valid());
-
-
-    }
-#endif
-
-
-    if (StealthlinkPresent) {
-        try {
-            this->StealthServerProxy->run_one();
-        }
-        catch (std::exception e) {
-            CMN_LOG_CLASS_RUN_ERROR << "Configure: Caught exception while listening to Stealth server: " << e.what() << std::endl;
-        }
-        catch (...) {
-            CMN_LOG_CLASS_RUN_ERROR << "Configure: Caught unknown exception while listening to Stealth server" << std::endl;
-        }
-    }
-
 
     ProcessQueuedCommands();
+
+}
+
+void mtsMedtronicStealthlink::Startup(void){
+    //create and start stealthlink run thread
+
+    if (StealthlinkPresent) {
+        StealthServerProxyThread.Create<mtsMedtronicStealthlink, void *>
+                        (this, &mtsMedtronicStealthlink::StealthlinkRun, 0 );
+    }
+
+
+}
+
+void * mtsMedtronicStealthlink::StealthlinkRun(void * ) {
+    try {
+        StealthServerProxy->run();
+    }
+    catch (std::exception e) {
+        CMN_LOG_CLASS_RUN_ERROR << "Configure: Caught exception while listening to Stealth server: " << e.what() << std::endl;
+    }
+    catch (...) {
+        CMN_LOG_CLASS_RUN_ERROR << "Configure: Caught unknown exception while listening to Stealth server" << std::endl;
+    }
+
+    return 0;
 
 }
 
 
 void mtsMedtronicStealthlink::Cleanup(void)
 {
+    //Stop stealthlink
+    this->StealthServerProxy->stop();
+
+    //Wait for it's thread
+    //StealthServerProxyThread.Wait();
+
+    //If it timesout kill the thread
+    StealthServerProxyThread.Delete();
+
     this->StealthServerProxy->disconnect();
     ToolsContainer::iterator it;
     const ToolsContainer::iterator end = Tools.end();
@@ -545,8 +442,8 @@ void mtsMedtronicStealthlink::operator()(MNavStealthLink::Instrument& instrument
         }
     }
 
-
-
+    ToolDataStateTable.Advance();
+    ProbeCalStateTable.Advance();
 }
 void mtsMedtronicStealthlink::operator()(const MNavStealthLink::Frame& frame_in){
     FrameData = frame_in;
@@ -575,6 +472,7 @@ void mtsMedtronicStealthlink::operator()(const MNavStealthLink::Frame& frame_in)
         }
     }
 
+    FrameDataStateTable.Advance();
 }
 void mtsMedtronicStealthlink::operator()(const MNavStealthLink::Registration& registration_in){
     RegistrationData = registration_in;
@@ -585,6 +483,7 @@ void mtsMedtronicStealthlink::operator()(const MNavStealthLink::Registration& re
     this->RegistrationMember.PredictedAccuracy = RegistrationData.GetAccuracy();
     this->RegistrationMember.PredictedAccuracy.SetValid(RegistrationData.Valid());
 
+    RegistrationDataStateTable.Advance();
 }
 void mtsMedtronicStealthlink::operator()(const MNavStealthLink::Exam& exam_in){
     ExamInformationMember.VoxelScale[0] = exam_in.scale[0];
@@ -594,6 +493,8 @@ void mtsMedtronicStealthlink::operator()(const MNavStealthLink::Exam& exam_in){
     ExamInformationMember.Size[1] = exam_in.size[1];
     ExamInformationMember.Size[2] = exam_in.size[2];
     ExamInformationMember.Valid = true;
+
+    ExamInformationStateTable.Advance();
 }
 void mtsMedtronicStealthlink::operator()(MNavStealthLink::SurgicalPlan& plan_in){
     SurgicalPlan[0] = plan_in.entry[0];
@@ -602,6 +503,8 @@ void mtsMedtronicStealthlink::operator()(MNavStealthLink::SurgicalPlan& plan_in)
     SurgicalPlan[3] = plan_in.target[0];
     SurgicalPlan[4] = plan_in.target[1];
     SurgicalPlan[5] = plan_in.target[2];
+
+    SurgicalPlanStateTable.Advance();
 }
 
 

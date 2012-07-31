@@ -22,7 +22,11 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsTaskManager.h>
 #include <cisstMultiTask.h>
 #include <cisstCommon/cmnGetChar.h>
+#ifdef SAW_MEDTRONIC_STEALTHLINK2
+#include <sawMedtronicStealthlink/mtsMedtronicStealthlink2.h>
+#else
 #include <sawMedtronicStealthlink/mtsMedtronicStealthlink.h>
+#endif
 #include "mtsMedtronicStealthlinkExampleComponent.h"
 
 int main(int argc, char * argv[])
@@ -40,7 +44,11 @@ int main(int argc, char * argv[])
     std::cerr << "Usage: " << argv[0] << " [flagForDataCollection]" << std::endl;
 
     // create the components
-    mtsMedtronicStealthlink * componentStealthlink = new mtsMedtronicStealthlink("Stealthlink", 50.0 * cmn_ms);
+#ifdef SAW_MEDTRONIC_STEALTHLINK2
+    mtsMedtronicStealthlink * componentStealthlink = new mtsMedtronicStealthlink("Stealthlink");
+#else
+    mtsMedtronicStealthlink * componentStealthlink = new mtsMedtronicStealthlink("Stealthlink", 50 * cmn_ms);
+#endif
     componentStealthlink->Configure("config.xml");
 
     mtsMedtronicStealthlinkExampleComponent * componentExample = new mtsMedtronicStealthlinkExampleComponent("Example", 50 * cmn_ms);

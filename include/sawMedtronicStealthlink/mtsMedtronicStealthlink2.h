@@ -4,7 +4,7 @@
 /*
   $Id: mtsMedtronicStealthlink.h 3754 2012-07-27 15:06:53Z dmirota1 $
 
-  Author(s): Peter Kazanzides, Anton Deguet
+  Author(s): Peter Kazanzides, Anton Deguet, Daniel Mirota
   Created on: 2006
 
   (C) Copyright 2006-2011 Johns Hopkins University (JHU), All Rights Reserved.
@@ -21,7 +21,7 @@ http://www.cisst.org/cisst/license.txt.
 #ifndef _mtsMedtronicStealthlink_h
 #define _mtsMedtronicStealthlink_h
 
-#include <cisstMultiTask/mtsTaskPeriodic.h>
+#include <cisstMultiTask/mtsTaskFromSignal.h>
 #include <cisstMultiTask/mtsTransformationTypes.h>
 #include <cisstMultiTask/mtsFixedSizeVectorTypes.h>
 #include <cisstParameterTypes/prmPositionCartesianGet.h>
@@ -42,6 +42,16 @@ namespace MNavStealthLink {
     template <typename T> class Subscription;
 }
 
+
+class myStateTable: public mtsStateTable{
+public:
+    myStateTable():
+        mtsStateTable(256,""){
+        this->SetAutomaticAdvance(false);
+    }
+};
+
+
 class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
 {
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
@@ -50,16 +60,30 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
     template <typename T> friend class MNavStealthLink::Subscription;
     AsCL_Client * Client;
     MNavStealthLink::StealthServer * StealthServerProxy;
+
+    osaThread StealthServerProxyThread;
+
+    void * StealthlinkRun(void *);
+
     mtsMedtronicStealthlink_AsCL_Utils * Utils;
 
     // State data
     mtsStealthTool ToolData;
+    myStateTable ToolDataStateTable;
+
     mtsStealthFrame FrameData;
+    myStateTable FrameDataStateTable;
+
     mtsStealthRegistration RegistrationData;
+    myStateTable RegistrationDataStateTable;
+
     mtsStealthProbeCal ProbeCal;
+    myStateTable ProbeCalStateTable;
 
     // Other persistent data
     mtsDoubleVec SurgicalPlan;  // entry point + target point
+    myStateTable SurgicalPlanStateTable;
+
     bool StealthlinkPresent;
 
     // Class used to store tool information using cisstParameterTypes
@@ -90,6 +114,7 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
         mtsDouble PredictedAccuracy;
     };
     Registration RegistrationMember;
+    myStateTable RegistrationStateTable;
 
     // Class used to store exam info
     class ExamInformation
@@ -100,6 +125,8 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
         bool Valid;
     };
     ExamInformation ExamInformationMember;
+    myStateTable ExamInformationStateTable;
+
     void RequestExamInformation(void);
 
     // surgical plan
@@ -135,11 +162,10 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
 
 
  public:
-    mtsMedtronicStealthlink(const std::string & taskName, const double & periodInSeconds);
-    mtsMedtronicStealthlink(const mtsTaskPeriodicConstructorArg & arg);
+    mtsMedtronicStealthlink(const std::string & taskName);
     ~mtsMedtronicStealthlink();
 
-    void Startup(void) {}
+    void Startup(void);
 
     /*! Configure the Stealthlink interface using an XML file. If the
       XML file is not found, the system uses a default IP address

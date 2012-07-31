@@ -19,6 +19,7 @@ set (sawMedtronicStealthlink_IS_V2 @Stealthlink2_FOUND@)
 
       if(sawMedtronicStealthlink_IS_V2)
         add_definitions(-DSAW_MEDTRONIC_WITHOUT_STEALTHLINK_TYPES)
+        add_definitions(-DSAW_MEDTRONIC_STEALTHLINK2)
       endif(sawMedtronicStealthlink_IS_V2)
 
 if (WIN32 AND NOT CISST_BUILD_SHARED_LIBS)

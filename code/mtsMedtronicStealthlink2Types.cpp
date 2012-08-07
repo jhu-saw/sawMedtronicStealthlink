@@ -17,10 +17,10 @@ http://www.cisst.org/cisst/license.txt.
 --- end cisst license ---
 */
 
-#include <sawMedtronicStealthlink/mtsMedtronicStealthlinkTypes.h>
+#include <sawMedtronicStealthlink/mtsMedtronicStealthlink2Types.h>
 
 // for conversion method
-#include <sawMedtronicStealthlink/mtsMedtronicStealthlink.h>
+#include <sawMedtronicStealthlink/mtsMedtronicStealthlink2.h>
 
 // Stealthlink definitions
 #ifdef CISST_HAS_STEALTHLINK
@@ -129,6 +129,73 @@ void mtsStealthTool::DeSerializeRaw(std::istream & inputStream)
     cmnDeSerializeRaw(inputStream, this->GeometryError);
 }
 
+
+myGenericObject * mtsStealthTool::operator= (const MNavStealthLink::DataItem & item_in)
+{
+    this->Assign(dynamic_cast<const MNavStealthLink::Instrument &>(item_in));
+    if(my_parent){
+        mtsMedtronicStealthlink::Tool * CurrentTool = my_parent->FindTool(this->Name);
+        my_parent->ProbeCal.Assign(dynamic_cast<const MNavStealthLink::Instrument &>(item_in));
+
+        if (this->Valid()) {
+            /*if (!CurrentTool || (CurrentTool->GetStealthName() != this->GetName())) {
+                CurrentTool = FindTool(ToolData.GetName());
+                if (!CurrentTool) {
+                    CMN_LOG_CLASS_INIT_VERBOSE << "Run: adding new tool \""
+                                               << ToolData.GetName() << "\"" << std::endl;
+                    CurrentTool = AddTool(ToolData.GetName(), ToolData.GetName());
+                }
+                if (CurrentTool) {
+                    CMN_LOG_CLASS_RUN_VERBOSE << "Run: current tool is now \""
+                                              << CurrentTool->GetInterfaceName() << "\"" << std::endl;
+                } else {
+                    CMN_LOG_CLASS_RUN_ERROR << "Run: unable to add provided interface for new tool \""
+                                            << ToolData.GetName() << "\"" << std::endl;
+                }
+            }*/
+            // rely on older interface to retrieve tool information
+            if (CurrentTool) {
+                CurrentTool->MarkerPosition.Position() = this->GetFrame();
+                CurrentTool->MarkerPosition.SetValid(true);
+            /*}
+            // Get tool tip calibration if it is invalid or has changed
+            if ((strcmp(ToolData.GetName(), ProbeCal.GetName()) != 0) || !ProbeCal.Valid()) {
+
+
+                std::cout << "Got probe cal " << ToolData.GetName() << std::endl;
+                std::cout << "   probe cal " << ProbeCal.GetName() << std::endl;
+                std::cout << "   tip " << ProbeCal.GetTip() << std::endl;
+                std::cout << "   hind " << ProbeCal.GetHind() << std::endl;
+                std::cout << "   valid " << ProbeCal.Valid() << std::endl;
+
+            }else
+            {
+                std::cout << "did not get got probe cal " << ToolData.GetName() << std::endl;
+            }
+            // If we have valid data, then store the result
+            if (CurrentTool && ProbeCal.Valid() &&
+                (strcmp(ToolData.GetName(), ProbeCal.GetName()) == 0)) {*/
+                CurrentTool->TooltipPosition.Position() = vctFrm3(this->GetFrame().Rotation(),
+                                                                  this->GetFrame() * my_parent->ProbeCal.GetTip());
+                CurrentTool->TooltipPosition.SetValid(true);
+            }else
+            {
+                if(!CurrentTool)
+                    std::cout << "CurrentTool not valid" << my_parent->ProbeCal.Valid() << std::endl;
+                if(!my_parent->ProbeCal.Valid())
+                    std::cout << "ProbeCal not valid" << my_parent->ProbeCal.Valid() << std::endl;
+                if(!(strcmp(this->GetName(), my_parent->ProbeCal.GetName()) == 0))
+                    std::cout << this->GetName() << " does not match " << my_parent->ProbeCal.GetName() << std::endl;
+
+            }
+        }
+
+    }
+    return this;
+}
+
+
+
 void mtsStealthFrame::Assign(const mtsStealthFrame & that)
 {
     this->SetTimestamp(that.Timestamp());
@@ -187,6 +254,41 @@ void mtsStealthFrame::ToStreamRaw(std::ostream & outputStream, const char delimi
     }
 }
 
+
+myGenericObject * mtsStealthFrame::operator= (const MNavStealthLink::DataItem & item_in)
+{
+    this->Assign(dynamic_cast<const MNavStealthLink::Frame &>(item_in));
+    if(my_parent){
+        mtsMedtronicStealthlink::Tool * CurrentFrame = my_parent->FindTool(this->Name);
+
+        if (this->Valid()) {
+            /*if (!CurrentFrame || (CurrentFrame->GetStealthName() != this->GetName())) {
+                CurrentFrame = FindTool(FrameData.GetName());
+                if (!CurrentFrame) {
+                    //CMN_LOG_CLASS_INIT_VERBOSE << "Run: adding new tool \""
+                    //                           << FrameData.GetName() << "\"" << std::endl;
+                    //CurrentFrame = AddTool(FrameData.GetName(), FrameData.GetName());
+                }
+                if (CurrentFrame) {
+                    //CMN_LOG_CLASS_RUN_VERBOSE << "Run: current tool is now \""
+                    //                          << CurrentFrame->GetInterfaceName() << "\"" << std::endl;
+                } else {
+                    //CMN_LOG_CLASS_RUN_ERROR << "Run: unable to add provided interface for new tool \""
+                    //                        << FrameData.GetName() << "\"" << std::endl;
+                }
+            }*/
+            // rely on older interface to retrieve tool information
+            if (CurrentFrame) {
+                CurrentFrame->MarkerPosition.Position() = this->GetFrame();
+                CurrentFrame->MarkerPosition.SetValid(true);
+            }
+        }
+
+    }
+    return this;
+}
+
+
 void mtsStealthRegistration::Assign(const mtsStealthRegistration & that)
 {
     this->SetTimestamp(that.Timestamp());
@@ -238,6 +340,19 @@ void mtsStealthRegistration::ToStreamRaw(std::ostream & outputStream, const char
     }
 }
 
+myGenericObject * mtsStealthRegistration::operator= (const MNavStealthLink::DataItem & item_in)
+{
+    this->Assign(dynamic_cast<const MNavStealthLink::Registration &>(item_in));
+    if (my_parent){
+        my_parent->RegistrationMember.Transformation = this->GetFrame();
+        my_parent->RegistrationMember.Valid = this->Valid();
+        my_parent->RegistrationMember.PredictedAccuracy = this->GetAccuracy();
+        my_parent->RegistrationMember.PredictedAccuracy.SetValid(this->Valid());
+    }
+    return this;
+}
+
+
 void mtsStealthProbeCal::Assign(const mtsStealthProbeCal & that)
 {
     this->SetTimestamp(that.Timestamp());
@@ -247,11 +362,12 @@ void mtsStealthProbeCal::Assign(const mtsStealthProbeCal & that)
     this->Hind = that.Hind;
 }
 
-void mtsStealthProbeCal::Assign (MNavStealthLink::Instrument & griProbeCal)
+void mtsStealthProbeCal::Assign (const MNavStealthLink::Instrument & griProbeCal)
 {
     for (int k = 0; k < NAME_LENGTH; k++) Name[k] = griProbeCal.name[k];
     this->SetValid(true);
-    MNavStealthLink::InstrumentPosition & current_ProbeCal = griProbeCal.localizerPosition;
+    //const_cast required because MNavStealthLink::Point operator[] is not const
+    MNavStealthLink::InstrumentPosition & current_ProbeCal = const_cast<MNavStealthLink::InstrumentPosition &>(griProbeCal.localizerPosition);
     Tip = vct3(current_ProbeCal.tip[0],current_ProbeCal.tip[1],current_ProbeCal.tip[2]);
     Hind = vct3(current_ProbeCal.hind[0],current_ProbeCal.hind[1],current_ProbeCal.hind[2]);
 }
@@ -287,3 +403,10 @@ void mtsStealthProbeCal::ToStreamRaw(std::ostream & outputStream, const char del
         Hind.ToStreamRaw(outputStream, delimiter);
     }
 }
+
+myGenericObject * mtsStealthProbeCal::operator= (const MNavStealthLink::DataItem & item_in)
+{
+    this->Assign(dynamic_cast<const MNavStealthLink::Instrument &>(item_in));
+    return this;
+}
+

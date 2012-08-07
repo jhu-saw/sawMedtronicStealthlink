@@ -24,7 +24,11 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmPositionCartesianGet.h>
 
 #ifndef SAW_MEDTRONIC_WITHOUT_STEALTHLINK_TYPES
-#include <sawMedtronicStealthlink/mtsMedtronicStealthlinkTypes.h>
+    #ifdef SAW_MEDTRONIC_STEALTHLINK2
+        #include <sawMedtronicStealthlink/mtsMedtronicStealthlink2Types.h>
+    #else
+        #include <sawMedtronicStealthlink/mtsMedtronicStealthlinkTypes.h>
+    #endif
 #endif
 
 #include <cisstMultiTask/mtsFixedSizeVectorTypes.h>

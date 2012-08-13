@@ -91,7 +91,7 @@ int main(int argc, char * argv[])
 
     ///// Data Collection /////
     // collect all state data in csv file
-    mtsCollectorState * collector;
+    mtsCollectorState * collector = 0;
     int stateCollectionFlag = 0;
     if(argc == 2)
     {
@@ -132,7 +132,7 @@ int main(int argc, char * argv[])
         switch (ch) {
         case 's':
 
-            if(stateCollectionFlag){
+            if(collector){
                 if(started)
                 {
                     collector->StopCollection(0.0);

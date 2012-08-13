@@ -95,7 +95,7 @@ int main(int argc, char * argv[])
     int stateCollectionFlag = 0;
     if(argc == 2)
     {
-        stateCollectionFlag = atoi(argv[1]);
+        stateCollectionFlag = atoi(argv[1]) > 0? 1 : 0;
     }
 
     std::cout << "Starting ... 'q' to stop" << std::endl;
@@ -131,19 +131,22 @@ int main(int argc, char * argv[])
 
         switch (ch) {
         case 's':
-            if(started)
-            {
-                collector->StopCollection(0.0);
-                std::cout << "Stop data collection" << std::endl;
-                started = false;
 
-            }
-            else
-            {
-                collector->StartCollection(0.0);
-                std::cout << "Start data collection" << std::endl;
-                started = true;
+            if(stateCollectionFlag){
+                if(started)
+                {
+                    collector->StopCollection(0.0);
+                    std::cout << "Stop data collection" << std::endl;
+                    started = false;
 
+                }
+                else
+                {
+                    collector->StartCollection(0.0);
+                    std::cout << "Start data collection" << std::endl;
+                    started = true;
+
+                }
             }
             break;
 

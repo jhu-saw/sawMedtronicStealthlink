@@ -50,11 +50,22 @@ class mtsMedtronicStealthlink;
 
 
 class myGenericObject{
+    private:
+        mtsStateTable myStateTable;
+    protected:
+        myGenericObject(const std::string & name):myStateTable(256,name){
+            myStateTable.SetAutomaticAdvance(false);
+        }
     public:
-        virtual myGenericObject * operator=(const MNavStealthLink::DataItem & item_in) = 0;
+        virtual const myGenericObject & operator=(const MNavStealthLink::DataItem & item_in){
+            this->convert(item_in);
+            myStateTable.Advance();
+            return (*this);
+        }
+        virtual void convert(const MNavStealthLink::DataItem & item_in) = 0;
 };
 
-#include <cisstMultiTask/mtsStateTable.h>
+/*#include <cisstMultiTask/mtsStateTable.h>
 
 class myStateTable: public mtsStateTable{
 public:
@@ -62,7 +73,7 @@ public:
         mtsStateTable(size,name){
         this->SetAutomaticAdvance(false);
     }
-};
+};*/
 
 
 
@@ -105,7 +116,7 @@ class CISST_EXPORT mtsStealthTool:public myGenericObject, public mtsGenericObjec
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsStealthTool);
 
 
-class CISST_EXPORT mtsStealthFrame :public myGenericObject, public mtsGenericObject {
+class CISST_EXPORT mtsStealthFrame :public mtsGenericObject, public myGenericObject {
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION, CMN_LOG_LOD_RUN_ERROR);
  private:
     vctFrm3 XForm;
@@ -142,7 +153,7 @@ class CISST_EXPORT mtsStealthFrame :public myGenericObject, public mtsGenericObj
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsStealthFrame);
 
 
-class CISST_EXPORT mtsStealthRegistration :public myGenericObject, public mtsGenericObject {
+class CISST_EXPORT mtsStealthRegistration :public mtsGenericObject, public myGenericObject {
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION, CMN_LOG_LOD_RUN_ERROR);
  private:
     vctFrm3 XForm;
@@ -175,7 +186,7 @@ class CISST_EXPORT mtsStealthRegistration :public myGenericObject, public mtsGen
 CMN_DECLARE_SERVICES_INSTANTIATION(mtsStealthRegistration);
 
 
-class CISST_EXPORT mtsStealthProbeCal :public myGenericObject, public mtsGenericObject {
+class CISST_EXPORT mtsStealthProbeCal :public mtsGenericObject, public myGenericObject {
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION, CMN_LOG_LOD_RUN_ERROR);
  private:
     char Name[NAME_LENGTH];

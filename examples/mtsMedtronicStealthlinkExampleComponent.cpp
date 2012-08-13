@@ -64,8 +64,10 @@ void mtsMedtronicStealthlinkExampleComponent::AddStealthlinkInterface()
 {
     mtsInterfaceRequired * required = AddInterfaceRequired("Stealthlink");
     if (required) {
+#ifndef SAW_MEDTRONIC_WITHOUT_STEALTHLINK_TYPES
         required->AddFunction("GetTool", Stealthlink.GetTool);
         required->AddFunction("GetFrame", Stealthlink.GetFrame);
+#endif
     }
 
     // the following two tools are using names normally defined in config.xml

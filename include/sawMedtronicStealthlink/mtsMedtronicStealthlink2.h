@@ -27,7 +27,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstParameterTypes/prmPositionCartesianGet.h>
 
 // data types used for wrapper
-#include <sawMedtronicStealthlink/mtsMedtronicStealthlink2Types.h>
+//#include <sawMedtronicStealthlink/mtsMedtronicStealthlink2Types.h>
 
 // Always include last
 #include <sawMedtronicStealthlink/sawMedtronicStealthlinkExport.h>
@@ -37,8 +37,31 @@ namespace MNavStealthLink {
     class StealthServer;
     class Exam;
     class SurgicalPlan;
+    class Instrument;
+    class Frame;
+    class Registration;
+    class InstrumentPosition;
+    class DataItem;
     template <typename T> class Subscription;
 }
+
+class myGenericObject{
+    protected:
+        std::string myName;
+        mtsStateTable myStateTable;
+        myGenericObject(const std::string & name):myName(name), myStateTable(256,myName + "Table"){
+            myStateTable.SetAutomaticAdvance(false);
+        }
+    public:
+        void AssignAndAdvance(const MNavStealthLink::DataItem & item_in){
+            this->Assign(item_in);
+            myStateTable.Advance();
+        }
+        virtual void Assign(const MNavStealthLink::DataItem & item_in) = 0;
+
+        virtual void ConfigureInterfaceProvided(mtsInterfaceProvided * provided_in) = 0;
+};
+
 
 
 class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
@@ -46,14 +69,15 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
 
-    friend class mtsStealthRegistration;
-    friend class mtsStealthFrame;
-    friend class mtsStealthTool;
+    //friend class mtsStealthRegistration;
+    //friend class mtsStealthFrame;
+    //friend class mtsStealthTool;
 
 
     MNavStealthLink::StealthServer * StealthServerProxy;
 
     osaThread StealthServerProxyThread;
+    osaMutex myLock;
 
     void * StealthlinkRun(void *);
 
@@ -64,12 +88,18 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
 
     //mtsStealthRegistration RegistrationData;
 
-    mtsStealthProbeCal ProbeCal;
+    //mtsStealthProbeCal ProbeCal;
 
-    class my_mtsDoubleVec:public myGenericObject, public mtsDoubleVec {
+    class SurgicalPlan:public myGenericObject {
         public:
-            my_mtsDoubleVec(size_type size_in) {this->SetSize(size_in);}
-            virtual myGenericObject * operator=(const MNavStealthLink::DataItem & item_in);
+            SurgicalPlan():myGenericObject("SurgicalPlan") {this->entry.SetSize(3);
+                                                            this->target.SetSize(3);
+                                                            this->myStateTable.AddData(this->entry,this->myName + "entry");
+                                                            this->myStateTable.AddData(this->target,this->myName + "target");}
+            void Assign(const MNavStealthLink::DataItem & item_in);
+            void ConfigureInterfaceProvided(mtsInterfaceProvided * provided_in);
+            mtsDoubleVec entry;
+            mtsDoubleVec target;
     };
 
     // Other persistent data
@@ -78,35 +108,50 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
     bool StealthlinkPresent;
 
     // Class used to store tool information using cisstParameterTypes
-    class Tool
+    class Tool: public myGenericObject
     {
         std::string StealthName;
         std::string InterfaceName;
     public:
-        Tool(const std::string &stealthName, const std::string &interfaceName) :
-            StealthName(stealthName), InterfaceName(interfaceName) {}
+        Tool(const std::string &stealthName, const std::string &interfaceName): myGenericObject(interfaceName),
+            StealthName(stealthName), InterfaceName(interfaceName) {this->myStateTable.AddData(this->TooltipPosition,this->myName + "Position");
+                                                                                                 this->myStateTable.AddData(this->MarkerPosition,this->myName + "Marker");}
         ~Tool(void) {}
         const std::string & GetStealthName(void) const { return StealthName; }
         const std::string & GetInterfaceName(void) const { return InterfaceName; }
+
+        void Assign(const MNavStealthLink::DataItem & item_in);
+        void ConfigureInterfaceProvided(mtsInterfaceProvided * provided_in);
+
         prmPositionCartesianGet TooltipPosition;
         prmPositionCartesianGet MarkerPosition;
+
     };
 
     typedef std::vector<Tool *> ToolsContainer;
     ToolsContainer Tools;
     //Tool * CurrentTool, * CurrentFrame;
-    void GetTool(mtsStealthTool & tool) const;
-    void GetFrame(mtsStealthFrame & frame) const;
-    void GetProbeCalibration(mtsStealthProbeCal & probeCal) const {}
+    //void GetTool(mtsGenericObject & tool) const{}
+    //void GetFrame(mtsGenericObject & frame) const{}
+    //void GetProbeCalibration(mtsStealthProbeCal & probeCal) const {}
 
 
     // Class used to store registration data
-    class Registration
+    class Registration: public myGenericObject
     {
     public:
+        Registration():myGenericObject("Registration") {this->myStateTable.AddData(this->Transformation,this->myName + "Transformation");
+                                                        this->myStateTable.AddData(this->Valid,this->myName + "Valid");
+                                                        this->myStateTable.AddData(this->PredictedAccuracy,this->myName + "PredictedAccuracy");}
+
+        void Assign(const MNavStealthLink::DataItem & item_in);
+        void ConfigureInterfaceProvided(mtsInterfaceProvided * provided_in);
+
         mtsFrm3 Transformation;
         mtsBool Valid;
         mtsDouble PredictedAccuracy;
+
+
     };
     Registration RegistrationMember;
 
@@ -114,7 +159,12 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
     class ExamInformation: public myGenericObject
     {
     public:
-        virtual myGenericObject * operator=(const MNavStealthLink::DataItem & item_in);
+        ExamInformation():myGenericObject("ExamInformation"){this->myStateTable.AddData(this->VoxelScale,this->myName + "ExamInformationVoxelScale");
+                                                             this->myStateTable.AddData(this->Size,this->myName + "ExamInformationSize");
+                                                             this->myStateTable.AddData(this->Valid,this->myName + "ExamInformationValid");}
+        void Assign(const MNavStealthLink::DataItem & item_in);
+        void ConfigureInterfaceProvided(mtsInterfaceProvided * provided_in);
+
         mtsDouble3 VoxelScale;
         mtsInt3 Size;
         bool Valid;
@@ -125,7 +175,7 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
 
     // surgical plan
     void RequestSurgicalPlan(void);
-    void GetSurgicalPlan(mtsDoubleVec & plan) const;
+    //void GetSurgicalPlan(mtsDoubleVec & plan) const;
 
     /*! Mark all tool data as invalid */
     void ResetAllTools(void);
@@ -167,34 +217,12 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
      };
 
 
-    typedef std::pair<const MNavStealthLink::DataItem * ,myGenericObject *> DataMapContainerItem;
     typedef std::map<const MNavStealthLink::DataItem * ,myGenericObject *,less_DataItem> DataMapContainer;
+    typedef std::pair<const MNavStealthLink::DataItem * ,myGenericObject *> DataMapContainerItem;
     typedef std::pair<DataMapContainer::iterator,bool> DataMapContainerInsertReturnValue;
     DataMapContainer myDataMap;
 
     typedef std::vector<DataMapContainer::iterator> myDataMapIteratorsContainer;
-    myDataMapIteratorsContainer myToolIterators;
-    myDataMapIteratorsContainer myFrameIterators;
-
-    DataMapContainer::iterator myPlanIterator;
-
-    struct less_myGenericObject : std::binary_function<const myGenericObject *, const myGenericObject *, bool>
-    {
-        bool operator() (const myGenericObject * a, const myGenericObject * b) const {
-            if (typeid(a) == typeid(const mtsStealthTool *) && typeid(b) == typeid(const mtsStealthTool *)){
-                return strcmp(dynamic_cast<const mtsStealthTool *>(a)->GetName(),dynamic_cast<const mtsStealthTool *>(b)->GetName()) == 0;
-            }else if (typeid(a) == typeid(const mtsStealthFrame *) && typeid(b) == typeid(const mtsStealthFrame *)){
-                return strcmp(dynamic_cast<const mtsStealthFrame *>(a)->GetName(),dynamic_cast<const mtsStealthFrame *>(b)->GetName()) == 0;
-            }else{
-                return typeid(a) == typeid(b);
-            }
-        }
-     };
-
-    typedef std::pair<const myGenericObject *, mtsStateTable *> StateTableMapContainerItem;
-    typedef std::map<const myGenericObject *, mtsStateTable *,less_myGenericObject> StateTableMapContainer;
-    typedef std::pair<StateTableMapContainer::iterator,bool> StateTableMapContainerInsertReturnValue;
-    StateTableMapContainer myStateTableMap;
 
  public:
     mtsMedtronicStealthlink(const std::string & taskName);

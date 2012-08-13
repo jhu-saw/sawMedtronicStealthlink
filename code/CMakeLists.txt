@@ -70,7 +70,7 @@ if (cisst_FOUND_AS_REQUIRED)
     if(Stealthlink2_FOUND)
     set (sawMedtronicStealthlink_LIBRARIES sawMedtronicStealthlink ${Stealthlink2_LIBRARIES})
     include_directories (${sawMedtronicStealthlink_INCLUDE_DIR} ${Stealthlink2_INCLUDE_DIRS} )
-    set (mtsMedtronicStealthlink_SOURCES mtsMedtronicStealthlink2.cpp mtsMedtronicStealthlink2Types.cpp ${sawMedtronicStealthlink_HEADER_DIR}/mtsMedtronicStealthlink2.h ${sawMedtronicStealthlink_HEADER_DIR}/mtsMedtronicStealthlink2Types.h)
+    set (mtsMedtronicStealthlink_SOURCES mtsMedtronicStealthlink2.cpp ${sawMedtronicStealthlink_HEADER_DIR}/mtsMedtronicStealthlink2.h)
     set (mtsMedtronicStealthlink_AsCL_Stuff_HEADER) 
     endif(Stealthlink2_FOUND)
 

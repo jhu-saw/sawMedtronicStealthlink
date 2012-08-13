@@ -157,7 +157,11 @@ int main(int argc, char * argv[])
     componentManager->KillAll();
     componentManager->WaitForStateAll(mtsComponentState::FINISHED, 2.0 * cmn_s);
     componentManager->Cleanup();
+
+
     delete componentStealthlink;
+
+    cmnLogger::Kill();
 
     return 0;
 }

@@ -26,9 +26,6 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsFixedSizeVectorTypes.h>
 #include <cisstParameterTypes/prmPositionCartesianGet.h>
 
-// data types used for wrapper
-//#include <sawMedtronicStealthlink/mtsMedtronicStealthlink2Types.h>
-
 // Always include last
 #include <sawMedtronicStealthlink/sawMedtronicStealthlinkExport.h>
 
@@ -69,41 +66,11 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
     CMN_DECLARE_SERVICES(CMN_DYNAMIC_CREATION_ONEARG, CMN_LOG_ALLOW_DEFAULT);
 
 
-    //friend class mtsStealthRegistration;
-    //friend class mtsStealthFrame;
-    //friend class mtsStealthTool;
-
-
     MNavStealthLink::StealthServer * StealthServerProxy;
 
     osaThread StealthServerProxyThread;
-    osaMutex myLock;
 
     void * StealthlinkRun(void *);
-
-    // State data
-    //mtsStealthTool ToolData;
-
-    //mtsStealthFrame FrameData;
-
-    //mtsStealthRegistration RegistrationData;
-
-    //mtsStealthProbeCal ProbeCal;
-
-    class SurgicalPlan:public myGenericObject {
-        public:
-            SurgicalPlan():myGenericObject("SurgicalPlan") {this->entry.SetSize(3);
-                                                            this->target.SetSize(3);
-                                                            this->myStateTable.AddData(this->entry,this->myName + "entry");
-                                                            this->myStateTable.AddData(this->target,this->myName + "target");}
-            void Assign(const MNavStealthLink::DataItem & item_in);
-            void ConfigureInterfaceProvided(mtsInterfaceProvided * provided_in);
-            mtsDoubleVec entry;
-            mtsDoubleVec target;
-    };
-
-    // Other persistent data
-    //my_mtsDoubleVec SurgicalPlan;  // entry point + target point
 
     bool StealthlinkPresent;
 
@@ -130,11 +97,19 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
 
     typedef std::vector<Tool *> ToolsContainer;
     ToolsContainer Tools;
-    //Tool * CurrentTool, * CurrentFrame;
-    //void GetTool(mtsGenericObject & tool) const{}
-    //void GetFrame(mtsGenericObject & frame) const{}
-    //void GetProbeCalibration(mtsStealthProbeCal & probeCal) const {}
 
+    //Class used to store surgical plan data
+    class SurgicalPlan:public myGenericObject {
+        public:
+            SurgicalPlan():myGenericObject("SurgicalPlan") {this->entry.SetSize(3);
+                                                            this->target.SetSize(3);
+                                                            this->myStateTable.AddData(this->entry,this->myName + "entry");
+                                                            this->myStateTable.AddData(this->target,this->myName + "target");}
+            void Assign(const MNavStealthLink::DataItem & item_in);
+            void ConfigureInterfaceProvided(mtsInterfaceProvided * provided_in);
+            mtsDoubleVec entry;
+            mtsDoubleVec target;
+    };
 
     // Class used to store registration data
     class Registration: public myGenericObject
@@ -169,13 +144,8 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
         mtsInt3 Size;
         bool Valid;
     };
-    //ExamInformation ExamInformationMember;
 
     void RequestExamInformation(void);
-
-    // surgical plan
-    void RequestSurgicalPlan(void);
-    //void GetSurgicalPlan(mtsDoubleVec & plan) const;
 
     /*! Mark all tool data as invalid */
     void ResetAllTools(void);
@@ -195,34 +165,33 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
             mtsMedtronicStealthlink * my_parent;
         protected:
             template <typename T> friend class MNavStealthLink::Subscription;
+            friend class mtsMedtronicStealthlink;
             void operator()(const MNavStealthLink::DataItem& item_in);
         public:
             myCallback(mtsMedtronicStealthlink * parent_in):my_parent(parent_in) {}
     };
 
     myCallback myCallbackMember;
+    void LogWarning(const std::string & string_in){
+        CMN_LOG_CLASS_RUN_WARNING << string_in  << std::endl;
+    }
 
     //Stealthlink 2.0 Subscriptions
 
     MNavStealthLink::Subscription<MNavStealthLink::Instrument> * instrumentSubscription;
     MNavStealthLink::Subscription<MNavStealthLink::Frame> * frameSubscription;
     MNavStealthLink::Subscription<MNavStealthLink::Registration> * registrationSubscription;
-    MNavStealthLink::Subscription<MNavStealthLink::Exam> * examSubscription;
     MNavStealthLink::Subscription<MNavStealthLink::SurgicalPlan> * surgicalPlanSubscription;
-
 
     struct less_DataItem : std::binary_function<const MNavStealthLink::DataItem *, const MNavStealthLink::DataItem *, bool>
     {
         bool operator() (const MNavStealthLink::DataItem * a, const MNavStealthLink::DataItem * b) const ;
-     };
-
+    };
 
     typedef std::map<const MNavStealthLink::DataItem * ,myGenericObject *,less_DataItem> DataMapContainer;
     typedef std::pair<const MNavStealthLink::DataItem * ,myGenericObject *> DataMapContainerItem;
     typedef std::pair<DataMapContainer::iterator,bool> DataMapContainerInsertReturnValue;
     DataMapContainer myDataMap;
-
-    typedef std::vector<DataMapContainer::iterator> myDataMapIteratorsContainer;
 
  public:
     mtsMedtronicStealthlink(const std::string & taskName);

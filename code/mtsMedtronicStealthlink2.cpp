@@ -39,10 +39,6 @@ http://www.cisst.org/cisst/license.txt.
 #endif
 #endif
 
-#ifdef sawMedtronicStealthlink_IS_SIMULATOR
-void AsCL_MSG(int CMN_UNUSED(verbose_level), char * CMN_UNUSED(msg), ...) {}
-#endif
-
 CMN_IMPLEMENT_SERVICES_DERIVED(mtsMedtronicStealthlink, mtsTaskFromSignal)
 
 void mtsMedtronicStealthlink::Init(void)
@@ -64,7 +60,7 @@ void mtsMedtronicStealthlink::Init(void)
         provided = AddInterfaceProvided("SurgicalPlan");
         dataMapInsertReturn.first->second->ConfigureInterfaceProvided(provided);
     }else{
-        //something went wrong
+        CMN_LOG_CLASS_INIT_ERROR << "Init: Failed to add SurgicalPlan data to the DataMap " << std::endl;
     }
 
 
@@ -76,7 +72,7 @@ void mtsMedtronicStealthlink::Init(void)
         provided = AddInterfaceProvided("Registration");
         dataMapInsertReturn.first->second->ConfigureInterfaceProvided(provided);
     }else{
-        //something went wrong
+        CMN_LOG_CLASS_INIT_ERROR << "Init: Failed to add Registration data to the DataMap " << std::endl;
     }
 
 
@@ -89,7 +85,7 @@ void mtsMedtronicStealthlink::Init(void)
              }
              dataMapInsertReturn.first->second->ConfigureInterfaceProvided(provided);
     } else {
-        //something went wrong
+        CMN_LOG_CLASS_INIT_ERROR << "Init: Failed to add Exam data to the DataMap " << std::endl;
     }
 
 
@@ -99,11 +95,6 @@ void mtsMedtronicStealthlink::Init(void)
 mtsMedtronicStealthlink::mtsMedtronicStealthlink(const std::string & taskName) :
     mtsTaskFromSignal(taskName),
     StealthlinkPresent(false),
-    //CurrentTool(0),
-    //CurrentFrame(0),
-    //RegistrationData(this),
-    //ToolData(this),
-    //FrameData(this),
     myCallbackMember(this)
 {
     Init();
@@ -112,11 +103,10 @@ mtsMedtronicStealthlink::mtsMedtronicStealthlink(const std::string & taskName) :
 
 mtsMedtronicStealthlink::~mtsMedtronicStealthlink()
 {
-    //Cleanup();
-
 
     ToolsContainer::iterator it;
     const ToolsContainer::iterator end = Tools.end();
+    //TODO: refactor and remove Tools, myDataMap supersedes it.
     for (it = Tools.begin(); it != end; it++) {
         //delete (*it);
         //*it = 0;
@@ -173,17 +163,15 @@ void mtsMedtronicStealthlink::Configure(const std::string &filename)
     this->StealthServerProxy = new MNavStealthLink::StealthServer(const_cast<char *>(ipAddress.c_str()));
 #endif
 
-    std::string xpathString = "count(/tracker/tools/*)";
     std::string toolCountString = "";
 
-    config.GetXMLValue("",xpathString,toolCountString);
+    config.GetXMLValue("","count(/tracker/tools/*)",toolCountString);
 
     std::stringstream toolCountStream;
     toolCountStream << toolCountString;
 
     unsigned int toolCount;
     toolCountStream >> toolCount;
-
 
     // add pre-defined tools (up to 100)
     unsigned int maxToolCount = std::min(toolCount,static_cast<unsigned int>(100));
@@ -224,23 +212,19 @@ void mtsMedtronicStealthlink::Configure(const std::string &filename)
         CMN_LOG_CLASS_INIT_ERROR << "Configure: could not Initialize StealthLink" << std::endl;
     }else{
 
+        //attach all of the callbacks
+        instrumentSubscription = new MNavStealthLink::Subscription<MNavStealthLink::Instrument>(*(this->StealthServerProxy));
+        frameSubscription = new MNavStealthLink::Subscription<MNavStealthLink::Frame>(*(this->StealthServerProxy));
+        registrationSubscription = new MNavStealthLink::Subscription<MNavStealthLink::Registration>(*(this->StealthServerProxy));
+        surgicalPlanSubscription = new MNavStealthLink::Subscription<MNavStealthLink::SurgicalPlan>(*(this->StealthServerProxy));
 
 
-    //attach all of the callbacks
+        //Start all of the callbacks
+        instrumentSubscription->start(this->myCallbackMember);
+        frameSubscription->start(this->myCallbackMember);
+        registrationSubscription->start(this->myCallbackMember);
+        surgicalPlanSubscription->start(this->myCallbackMember);
 
-
-    instrumentSubscription = new MNavStealthLink::Subscription<MNavStealthLink::Instrument>(*(this->StealthServerProxy));
-    frameSubscription = new MNavStealthLink::Subscription<MNavStealthLink::Frame>(*(this->StealthServerProxy));
-    registrationSubscription = new MNavStealthLink::Subscription<MNavStealthLink::Registration>(*(this->StealthServerProxy));
-    //examSubscription = new MNavStealthLink::Subscription<MNavStealthLink::Exam>(*(this->StealthServerProxy));
-    surgicalPlanSubscription = new MNavStealthLink::Subscription<MNavStealthLink::SurgicalPlan>(*(this->StealthServerProxy));
-
-
-    instrumentSubscription->start(this->myCallbackMember);
-    frameSubscription->start(this->myCallbackMember);
-    registrationSubscription->start(this->myCallbackMember);
-    //examSubscription->start(this->myCallbackMember);
-    surgicalPlanSubscription->start(this->myCallbackMember);
     }
 #endif
 }
@@ -259,6 +243,7 @@ void mtsMedtronicStealthlink::ResetAllTools(void)
 
 mtsMedtronicStealthlink::Tool * mtsMedtronicStealthlink::FindTool(const std::string & stealthName) const
 {
+    //TODO: Update to support myDataMap
     ToolsContainer::const_iterator it;
     const ToolsContainer::const_iterator end = Tools.end();
     for (it = Tools.begin(); it != end; it++) {
@@ -272,7 +257,7 @@ mtsMedtronicStealthlink::Tool * mtsMedtronicStealthlink::FindTool(const std::str
 
 mtsMedtronicStealthlink::Tool * mtsMedtronicStealthlink::AddTool(const std::string & stealthName, const std::string & interfaceName)
 {
-    //TODO: Update to support myDataMap and myStateTableMap
+
 
     // First, check if tool has already been added
     Tool * tool = FindTool(stealthName);
@@ -331,7 +316,7 @@ mtsMedtronicStealthlink::Tool * mtsMedtronicStealthlink::AddTool(const std::stri
         provided = AddInterfaceProvided(interfaceName);
         dataMapInsertReturn.first->second->ConfigureInterfaceProvided(provided);
     } else {
-        //something went wrong
+        CMN_LOG_CLASS_INIT_ERROR << "AddTool: Failed to add tool to the DataMap" << std::endl;
     }
 
     return tool;
@@ -341,45 +326,13 @@ mtsMedtronicStealthlink::Tool * mtsMedtronicStealthlink::AddTool(const std::stri
 void mtsMedtronicStealthlink::RequestExamInformation(void)
 {
     if (StealthlinkPresent) {
-        //exam_info the_exam_info;
 #ifndef sawMedtronicStealthlink_IS_SIMULATOR
-        //this->Client->GetDataForCode(GET_EXAM_INFO,
-        //                             reinterpret_cast<void*>(&the_exam_info));
+        MNavStealthLink::Exam examData;
+        this->StealthServerProxy->get(examData);
+        this->myCallbackMember(examData);
 #endif
-        //ExamInformationMember.VoxelScale[0] = the_exam_info.voxel_scale[0];
-        //ExamInformationMember.VoxelScale[1] = the_exam_info.voxel_scale[1];
-        //ExamInformationMember.VoxelScale[2] = the_exam_info.voxel_scale[2];
-        //ExamInformationMember.Size[0] = the_exam_info.size[0];
-        //ExamInformationMember.Size[1] = the_exam_info.size[1];
-        //ExamInformationMember.Size[2] = the_exam_info.size[2];
-        //ExamInformationMember.Valid = the_exam_info.valid;
     }
 }
-
-
-void mtsMedtronicStealthlink::RequestSurgicalPlan(void)
-{
-    if (StealthlinkPresent) {
-        //surg_plan the_surg_plan;
-#ifndef sawMedtronicStealthlink_IS_SIMULATOR
-        //this->Client->GetDataForCode(GET_SURGICAL_PLAN,
-        //                             reinterpret_cast<void*>(&the_surg_plan));
-#endif
-        //SurgicalPlan[0] = the_surg_plan.entry[0];
-        //SurgicalPlan[1] = the_surg_plan.entry[1];
-        //SurgicalPlan[2] = the_surg_plan.entry[2];
-        //SurgicalPlan[3] = the_surg_plan.target[0];
-        //SurgicalPlan[4] = the_surg_plan.target[1];
-        //SurgicalPlan[5] = the_surg_plan.target[2];
-    }
-}
-
-
-/*void mtsMedtronicStealthlink::GetSurgicalPlan(mtsDoubleVec & plan) const
-{
-    //mtsDoubleVec * currentPlan = dynamic_cast<mtsDoubleVec *>(myPlanIterator->second);
-    //plan = *currentPlan;
-}*/
 
 
 void mtsMedtronicStealthlink::Run(void)
@@ -418,23 +371,24 @@ void * mtsMedtronicStealthlink::StealthlinkRun(void * ) {
 
 void mtsMedtronicStealthlink::Cleanup(void)
 {
-    //if (myLock.GetLockState() == osaMutex::LOCKED)
-    //    return;
-    //myLock.Lock();
 
     //Stop stealthlink
     if(StealthServerProxyThread.IsValid() && this->StealthServerProxy){
+        CMN_LOG_CLASS_RUN_VERBOSE << "Cleanup: Stopping StealthLink server" << std::endl;
+
         this->StealthServerProxy->stop();
 
         //Wait for it's thread
         //StealthServerProxyThread.Wait();
 
         //If it timesout kill the thread
+        CMN_LOG_CLASS_RUN_VERBOSE << "Cleanup: Deleting StealthLink server thread" << std::endl;
         StealthServerProxyThread.Delete();
     }
 
 
     if(this->StealthlinkPresent && this->StealthServerProxy){
+        CMN_LOG_CLASS_RUN_VERBOSE << "Cleanup: Disconnecting StealthLink server" << std::endl;
         this->StealthServerProxy->disconnect();
         this->StealthlinkPresent = this->StealthServerProxy->isConnected();
     }
@@ -443,21 +397,20 @@ void mtsMedtronicStealthlink::Cleanup(void)
 
     CMN_LOG_CLASS_RUN_VERBOSE << "Cleanup: finished" << std::endl;
 
-    //myLock.Unlock();
-
 
 }
 
 
 void mtsMedtronicStealthlink::myCallback::operator ()(const MNavStealthLink::DataItem& item_in){
     //the DataMap must be pre-allocated before a callback is called.
-    DataMapContainer::iterator current_item = my_parent->myDataMap.find(&item_in);
-    if (current_item != my_parent->myDataMap.end()) {
-        current_item->second->AssignAndAdvance(item_in);
-    }else{
-        //CMN_LOG_CLASS_RUN_WARNING << "Run: adding new data at runtime is currently unsupported"  << std::endl;
+    if(my_parent){
+        DataMapContainer::iterator current_item = my_parent->myDataMap.find(&item_in);
+        if (current_item != my_parent->myDataMap.end()) {
+            current_item->second->AssignAndAdvance(item_in);
+        }else{
+            my_parent->LogWarning("myCallback: adding new data at runtime is currently unsupported");
+        }
     }
-
 }
 
 
@@ -475,99 +428,8 @@ void frameConversion(vctFrm3 & result, const floatArray44 & input) {
 
 
 
-/* void mtsMedtronicStealthlink::operator()(MNavStealthLink::Instrument& instrument_in){
-    ToolData = instrument_in;
-    ProbeCal = instrument_in;
-
-    // update tool interfaces data
-    if (ToolData.Valid()) {
-        if (!CurrentTool || (CurrentTool->GetStealthName() != ToolData.GetName())) {
-            CurrentTool = FindTool(ToolData.GetName());
-            if (!CurrentTool) {
-                CMN_LOG_CLASS_INIT_VERBOSE << "Run: adding new tool \""
-                                           << ToolData.GetName() << "\"" << std::endl;
-                CurrentTool = AddTool(ToolData.GetName(), ToolData.GetName());
-            }
-            if (CurrentTool) {
-                CMN_LOG_CLASS_RUN_VERBOSE << "Run: current tool is now \""
-                                          << CurrentTool->GetInterfaceName() << "\"" << std::endl;
-            } else {
-                CMN_LOG_CLASS_RUN_ERROR << "Run: unable to add provided interface for new tool \""
-                                        << ToolData.GetName() << "\"" << std::endl;
-            }
-        }
-        // rely on older interface to retrieve tool information
-        if (CurrentTool) {
-            CurrentTool->MarkerPosition.Position() = ToolData.GetFrame();
-            CurrentTool->MarkerPosition.SetValid(true);
-        }
-        // Get tool tip calibration if it is invalid or has changed
-        if ((strcmp(ToolData.GetName(), ProbeCal.GetName()) != 0) || !ProbeCal.Valid()) {
-
-
-            std::cout << "Got probe cal " << ToolData.GetName() << std::endl;
-            std::cout << "   probe cal " << ProbeCal.GetName() << std::endl;
-            std::cout << "   tip " << ProbeCal.GetTip() << std::endl;
-            std::cout << "   hind " << ProbeCal.GetHind() << std::endl;
-            std::cout << "   valid " << ProbeCal.Valid() << std::endl;
-
-        }else
-        {
-            std::cout << "did not get got probe cal " << ToolData.GetName() << std::endl;
-        }
-        // If we have valid data, then store the result
-        if (CurrentTool && ProbeCal.Valid() &&
-            (strcmp(ToolData.GetName(), ProbeCal.GetName()) == 0)) {
-            CurrentTool->TooltipPosition.Position() = vctFrm3(ToolData.GetFrame().Rotation(),
-                                                              ToolData.GetFrame() * ProbeCal.GetTip());
-            CurrentTool->TooltipPosition.SetValid(true);
-        }else
-        {
-            if(!CurrentTool)
-                std::cout << "CurrentTool not valid" << ProbeCal.Valid() << std::endl;
-            if(!ProbeCal.Valid())
-                std::cout << "ProbeCal not valid" << ProbeCal.Valid() << std::endl;
-            if(!(strcmp(ToolData.GetName(), ProbeCal.GetName()) == 0))
-                std::cout << ToolData.GetName() << " does not match " << ProbeCal.GetName() << std::endl;
-
-        }
-    }
-
-
-}
-void mtsMedtronicStealthlink::operator()(const MNavStealthLink::Frame& frame_in){
-    FrameData = frame_in;
-
-    // update frame interface data
-    if (FrameData.Valid()) {
-        if (!CurrentFrame || (CurrentFrame->GetStealthName() != FrameData.GetName())) {
-            CurrentFrame = FindTool(FrameData.GetName());
-            if (!CurrentFrame) {
-                CMN_LOG_CLASS_INIT_VERBOSE << "Run: adding new tool \""
-                                           << FrameData.GetName() << "\"" << std::endl;
-                CurrentFrame = AddTool(FrameData.GetName(), FrameData.GetName());
-            }
-            if (CurrentFrame) {
-                CMN_LOG_CLASS_RUN_VERBOSE << "Run: current tool is now \""
-                                          << CurrentFrame->GetInterfaceName() << "\"" << std::endl;
-            } else {
-                CMN_LOG_CLASS_RUN_ERROR << "Run: unable to add provided interface for new tool \""
-                                        << FrameData.GetName() << "\"" << std::endl;
-            }
-        }
-        // rely on older interface to retrieve tool information
-        if (CurrentFrame) {
-            CurrentFrame->MarkerPosition.Position() = FrameData.GetFrame();
-            CurrentFrame->MarkerPosition.SetValid(true);
-        }
-    }
-
-}
-*/
-
-
-
-void mtsMedtronicStealthlink::Tool::Assign(const MNavStealthLink::DataItem & item_in){
+void mtsMedtronicStealthlink::Tool::Assign(const MNavStealthLink::DataItem & item_in)
+{
 
     if (typeid(item_in) == typeid(const MNavStealthLink::Instrument &) ){
         const MNavStealthLink::Instrument & tool_in = dynamic_cast<const MNavStealthLink::Instrument & >(item_in);
@@ -598,7 +460,8 @@ void mtsMedtronicStealthlink::Tool::Assign(const MNavStealthLink::DataItem & ite
 
 
 
-void mtsMedtronicStealthlink::Registration::Assign(const MNavStealthLink::DataItem & item_in){
+void mtsMedtronicStealthlink::Registration::Assign(const MNavStealthLink::DataItem & item_in)
+{
 
     const MNavStealthLink::Registration& registration_in = dynamic_cast<const MNavStealthLink::Registration&>(item_in);
 
@@ -610,34 +473,8 @@ void mtsMedtronicStealthlink::Registration::Assign(const MNavStealthLink::DataIt
 }
 
 
-/*
-void mtsMedtronicStealthlink::operator()(const MNavStealthLink::Exam& exam_in){
-    ExamInformationMember.VoxelScale[0] = exam_in.scale[0];
-    ExamInformationMember.VoxelScale[1] = exam_in.scale[1];
-    ExamInformationMember.VoxelScale[2] = exam_in.scale[2];
-    ExamInformationMember.Size[0] = exam_in.size[0];
-    ExamInformationMember.Size[1] = exam_in.size[1];
-    ExamInformationMember.Size[2] = exam_in.size[2];
-    ExamInformationMember.Valid = true;
-
-}
-void mtsMedtronicStealthlink::operator()(MNavStealthLink::SurgicalPlan& plan_in){
-    SurgicalPlan[0] = plan_in.entry[0];
-    SurgicalPlan[1] = plan_in.entry[1];
-    SurgicalPlan[2] = plan_in.entry[2];
-    SurgicalPlan[3] = plan_in.target[0];
-    SurgicalPlan[4] = plan_in.target[1];
-    SurgicalPlan[5] = plan_in.target[2];
-
-}*/
-
-
-
-bool mtsMedtronicStealthlink::less_DataItem::operator() (const MNavStealthLink::DataItem * a, const MNavStealthLink::DataItem * b) const {
-    //std::cout << typeid(*a).name() << std::endl;
-    //std::cout << typeid(*b).name() << std::endl;
-    //std::cout << typeid(const MNavStealthLink::Instrument).name() << std::endl;
-    //std::cout << typeid(const MNavStealthLink::Frame).name() << std::endl;
+bool mtsMedtronicStealthlink::less_DataItem::operator() (const MNavStealthLink::DataItem * a, const MNavStealthLink::DataItem * b) const
+{
         if (typeid(*a) == typeid(const MNavStealthLink::Instrument) && typeid(*b) == typeid(const MNavStealthLink::Instrument)){
             return strcmp(dynamic_cast<const MNavStealthLink::Instrument *>(a)->name.c_str(),dynamic_cast<const MNavStealthLink::Instrument *>(b)->name.c_str()) < 0;
         }else if(typeid(*a) == typeid(const MNavStealthLink::Frame) && typeid(*b) == typeid(const MNavStealthLink::Frame)){
@@ -647,7 +484,8 @@ bool mtsMedtronicStealthlink::less_DataItem::operator() (const MNavStealthLink::
         }
     }
 
-void  mtsMedtronicStealthlink::SurgicalPlan::Assign(const MNavStealthLink::DataItem & item_in){
+void  mtsMedtronicStealthlink::SurgicalPlan::Assign(const MNavStealthLink::DataItem & item_in)
+{
    const MNavStealthLink::SurgicalPlan& plan_in = dynamic_cast<const MNavStealthLink::SurgicalPlan&>(item_in);
    MNavStealthLink::Point & entry = const_cast<MNavStealthLink::Point &>(plan_in.entry);
    MNavStealthLink::Point & target = const_cast<MNavStealthLink::Point &>(plan_in.target);
@@ -660,7 +498,8 @@ void  mtsMedtronicStealthlink::SurgicalPlan::Assign(const MNavStealthLink::DataI
 }
 
 
-void mtsMedtronicStealthlink::ExamInformation::Assign(const MNavStealthLink::DataItem & item_in){
+void mtsMedtronicStealthlink::ExamInformation::Assign(const MNavStealthLink::DataItem & item_in)
+{
    const MNavStealthLink::Exam& exam_in = dynamic_cast<const MNavStealthLink::Exam&>(item_in);
    this->VoxelScale[0] = exam_in.scale[0];
    this->VoxelScale[1] = exam_in.scale[1];
@@ -671,56 +510,6 @@ void mtsMedtronicStealthlink::ExamInformation::Assign(const MNavStealthLink::Dat
    this->Valid = true;
 
 }
-
-
-/*void mtsMedtronicStealthlink::GetTool(mtsStealthTool & tool) const{
-    myDataMapIteratorsContainer::iterator it, newestIt;
-    mtsStealthTool currentTool;
-    double currentNewest = -1;
-    double currentTime = 0;
-    mtsStealthTool * currentToolptr = 0;
-    const myDataMapIteratorsContainer::iterator end = myToolIterators.end();
-    for (it = myToolIterators.begin(); it != end; it++) {
-        currentToolptr = dynamic_cast<mtsStealthTool * >((*it)->second);
-        myStateTableMap[(*it)->second]->GetAccessor(std::string(currentToolptr->GetName())+"Data")->GetLatest(currentTool);
-        currentTool.GetTimestamp(currentTime);
-        if(currentTime >= currentNewest){
-            currentNewest = currentTime;
-            newestIt = it;
-        }
-    }
-
-    currentToolptr = dynamic_cast<mtsStealthTool * >((*newestIt)->second);
-    myStateTableMap[(*newestIt)->second]->GetAccessor(std::string(currentToolptr->GetName())+"Data")->GetLatest(tool);*/
-
-   /* mtsStealthTool * currentToolptr = dynamic_cast<mtsStealthTool * >((*(myToolIterators.begin()))->second);
-
-    tool = *currentToolptr;
-}*/
-/*void mtsMedtronicStealthlink::GetFrame(mtsStealthFrame & frame) const{
-    myDataMapIteratorsContainer::iterator it, newestIt;
-    mtsStealthFrame currentFrame;
-    double currentNewest = -1;
-    double currentTime = 0;
-    mtsStealthFrame * currentFrameptr = 0;
-    const myDataMapIteratorsContainer::iterator end = myFrameIterators.end();
-    for (it = myFrameIterators.begin(); it != end; it++) {
-        currentFrameptr = dynamic_cast<mtsStealthFrame * >((*it)->second);
-        myStateTableMap[(*it)->second]->GetAccessor(std::string(currentFrameptr->GetName())+"Data")->GetLatest(currentFrame);
-        currentFrame.GetTimestamp(currentTime);
-        if (currentTime >= currentNewest){
-            currentNewest = currentTime;
-            newestIt = it;
-        }
-    }
-
-    currentFrameptr = dynamic_cast<mtsStealthFrame * >((*it)->second);
-    myStateTableMap[(*newestIt)->second]->GetAccessor(std::string(currentFrameptr->GetName())+"Data")->GetLatest(frame);*/
-
-   /* mtsStealthFrame * currentFrameptr = dynamic_cast<mtsStealthFrame * >((*(myFrameIterators.begin()))->second);
-
-    frame = *currentFrameptr;
-}*/
 
 
 void mtsMedtronicStealthlink::SurgicalPlan::ConfigureInterfaceProvided(mtsInterfaceProvided * provided_in)

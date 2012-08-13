@@ -126,9 +126,9 @@ void mtsMedtronicStealthlinkExampleComponent::Run(void)
 
     bool debug = true;
     bool didOutput = false;
-    bool getValid = false;
     mtsExecutionResult result;
 #ifndef SAW_MEDTRONIC_WITHOUT_STEALTHLINK_TYPES
+    bool getValid = false;
     result = Stealthlink.GetTool(StealthTool);
     if (!result.IsOK()) {
         std::cout << "Stealthlink.GetTool() failed: " << result << std::endl;

@@ -173,8 +173,21 @@ void mtsMedtronicStealthlink::Configure(const std::string &filename)
     this->StealthServerProxy = new MNavStealthLink::StealthServer(const_cast<char *>(ipAddress.c_str()));
 #endif
 
+    std::string xpathString = "count(/tracker/tools/*)";
+    std::string toolCountString = "";
+
+    config.GetXMLValue("",xpathString,toolCountString);
+
+    std::stringstream toolCountStream;
+    toolCountStream << toolCountString;
+
+    unsigned int toolCount;
+    toolCountStream >> toolCount;
+
+
     // add pre-defined tools (up to 100)
-    for (unsigned int i = 0; i < 100; i++) {
+    unsigned int maxToolCount = std::min(toolCount,static_cast<unsigned int>(100));
+    for (unsigned int i = 0; i < maxToolCount; i++) {
         std::stringstream context;
         std::string stealthName, name;
         context << "/tracker/tools/tool[" << i+1 << "]";

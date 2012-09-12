@@ -28,6 +28,8 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsFixedSizeVectorTypes.h>
 #include <cisstMultiTask/mtsInterfaceProvided.h>
 
+
+
 #ifdef CISST_HAS_STEALTHLINK
 #include <StealthLink/StealthLink.h>
 #endif
@@ -39,7 +41,8 @@ http://www.cisst.org/cisst/license.txt.
 #endif
 #endif
 
-CMN_IMPLEMENT_SERVICES_DERIVED(mtsMedtronicStealthlink, mtsTaskFromSignal)
+//CMN_IMPLEMENT_SERVICES_DERIVED(mtsMedtronicStealthlink, mtsTaskFromSignal)
+CMN_IMPLEMENT_SERVICES_DERIVED_ONEARG(mtsMedtronicStealthlink, mtsTaskFromSignal, std::string)
 
 void mtsMedtronicStealthlink::Init(void)
 {
@@ -98,6 +101,7 @@ mtsMedtronicStealthlink::mtsMedtronicStealthlink(const std::string & taskName) :
     myCallbackMember(this)
 {
     Init();
+
 }
 
 
@@ -402,7 +406,14 @@ void mtsMedtronicStealthlink::myCallback::operator ()(const MNavStealthLink::Dat
         if (current_item != my_parent->myDataMap.end()) {
             current_item->second->AssignAndAdvance(item_in);
         }else{
-            my_parent->LogWarning("myCallback: adding new data at runtime is currently unsupported");
+            std::string current_name;
+            if (typeid(*&item_in) == typeid(const MNavStealthLink::Frame)){
+                current_name = dynamic_cast<const MNavStealthLink::Frame *>(&item_in)->name;
+            }
+            if (typeid(*&item_in) == typeid(const MNavStealthLink::Instrument)){
+                current_name = dynamic_cast<const MNavStealthLink::Instrument *>(&item_in)->name;
+            }
+            my_parent->LogWarning("myCallback: adding new data at runtime is currently unsupported. Please add the following name to the configurtion: " + current_name);
         }
     }
 }

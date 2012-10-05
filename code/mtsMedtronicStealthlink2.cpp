@@ -73,6 +73,9 @@ void mtsMedtronicStealthlink::Init(void)
     // maybe we should create a separate state table for registration?  Would only advance if changed.
     if (dataMapInsertReturn.second){
         provided = AddInterfaceProvided("Registration");
+        if(provided){
+            provided->AddCommandRead(&mtsMedtronicStealthlink::GetRegistrationValid, this, "GetValid");
+        }
         dataMapInsertReturn.first->second->ConfigureInterfaceProvided(provided);
     }else{
         CMN_LOG_CLASS_INIT_ERROR << "Init: Failed to add Registration data to the DataMap " << std::endl;
@@ -213,14 +216,14 @@ void mtsMedtronicStealthlink::Configure(const std::string &filename)
         //attach all of the callbacks
         instrumentSubscription = new MNavStealthLink::Subscription<MNavStealthLink::Instrument>(*(this->StealthServerProxy));
         frameSubscription = new MNavStealthLink::Subscription<MNavStealthLink::Frame>(*(this->StealthServerProxy));
-        registrationSubscription = new MNavStealthLink::Subscription<MNavStealthLink::Registration>(*(this->StealthServerProxy));
+        //registrationSubscription = new MNavStealthLink::Subscription<MNavStealthLink::Registration>(*(this->StealthServerProxy));
         surgicalPlanSubscription = new MNavStealthLink::Subscription<MNavStealthLink::SurgicalPlan>(*(this->StealthServerProxy));
 
 
         //Start all of the callbacks
         instrumentSubscription->start(this->myCallbackMember);
         frameSubscription->start(this->myCallbackMember);
-        registrationSubscription->start(this->myCallbackMember);
+        //registrationSubscription->start(this->myCallbackMember);
         surgicalPlanSubscription->start(this->myCallbackMember);
 
     }
@@ -326,8 +329,10 @@ void mtsMedtronicStealthlink::RequestExamInformation(void)
     if (StealthlinkPresent) {
 #ifndef sawMedtronicStealthlink_IS_SIMULATOR
         MNavStealthLink::Exam examData;
-        this->StealthServerProxy->get(examData);
-        this->myCallbackMember(examData);
+        MNavStealthLink::Error current_error;
+        if(this->StealthServerProxy->get(examData,current_error)){
+            this->myCallbackMember(examData);
+        }
 #endif
     }
 }
@@ -399,7 +404,7 @@ void mtsMedtronicStealthlink::Cleanup(void)
 }
 
 
-void mtsMedtronicStealthlink::myCallback::operator ()(const MNavStealthLink::DataItem& item_in){
+void mtsMedtronicStealthlink::myCallback::operator ()(const MNavStealthLink::DataItem& item_in) const{
     //the DataMap must be pre-allocated before a callback is called.
     if(my_parent){
         DataMapContainer::iterator current_item = my_parent->myDataMap.find(&item_in);
@@ -436,30 +441,56 @@ void frameConversion(vctFrm3 & result, const floatArray44 & input) {
 void mtsMedtronicStealthlink::Tool::Assign(const MNavStealthLink::DataItem & item_in)
 {
 
-    if (typeid(item_in) == typeid(const MNavStealthLink::Instrument &) ){
+    if (typeid(*&item_in) == typeid(const MNavStealthLink::Instrument) ){
         const MNavStealthLink::Instrument & tool_in = dynamic_cast<const MNavStealthLink::Instrument & >(item_in);
 
         frameConversion(this->MarkerPosition.Position(),tool_in.localizer_T_instrument);
-        this->MarkerPosition.SetValid(true);
+        this->MarkerPosition.SetValid(tool_in.visibility == MNavStealthLink::Instrument::VISIBLE
+                                       || tool_in.visibility == MNavStealthLink::Instrument::ALMOST_BLOCKED);
 
-        this->TooltipPosition.SetValid(tool_in.isCalibrated);
+        this->TooltipPosition.SetValid(tool_in.isCalibrated && this->MarkerPosition.Valid());
 
-        if (tool_in.isCalibrated){
+        if (this->TooltipPosition.Valid()){
 
-        this->TooltipPosition.Position() = vctFrm3(this->MarkerPosition.Position().Rotation(),
-                                                          vct3(tool_in.localizerPosition.tip.x,tool_in.localizerPosition.tip.y,tool_in.localizerPosition.tip.y));
+            this->TooltipPosition.Position() = vctFrm3(this->MarkerPosition.Position().Rotation(),
+                                                          vct3(tool_in.localizerPosition.tip.x,tool_in.localizerPosition.tip.y,tool_in.localizerPosition.tip.z));
+
+            //this->TooltipPosition.Position() = this->MarkerPosition.Position();
 
         }
 
 
-    }else if(typeid(item_in) == typeid(const MNavStealthLink::Frame &)){
+    }else if(typeid(*&item_in) == typeid(const MNavStealthLink::Frame)){
         const MNavStealthLink::Frame & frame_in = dynamic_cast<const MNavStealthLink::Frame & >(item_in);
         frameConversion(this->MarkerPosition.Position(),frame_in.frame_T_localizer);
-        this->MarkerPosition.SetValid(true);
+
+        //Trek expects localizer_T_frame
+        this->MarkerPosition.Position() = this->MarkerPosition.Position().Inverse();
+
+        this->MarkerPosition.SetValid(frame_in.visibility == MNavStealthLink::Frame::VISIBLE
+                                      || frame_in.visibility == MNavStealthLink::Frame::ALMOST_BLOCKED);
 
     }
 
 
+}
+
+
+void mtsMedtronicStealthlink::GetRegistrationValid(bool & valid_out) const{
+
+
+    valid_out = false;
+    if (this->StealthlinkPresent) {
+#ifndef sawMedtronicStealthlink_IS_SIMULATOR
+        MNavStealthLink::Registration current_registration;
+        MNavStealthLink::Error current_error;
+        if(this->StealthServerProxy->get(current_registration,current_error)){
+
+            this->myCallbackMember(current_registration);
+            valid_out = true;
+        }
+#endif
+    }
 }
 
 
@@ -485,7 +516,9 @@ bool mtsMedtronicStealthlink::less_DataItem::operator() (const MNavStealthLink::
         }else if(typeid(*a) == typeid(const MNavStealthLink::Frame) && typeid(*b) == typeid(const MNavStealthLink::Frame)){
             return strcmp(dynamic_cast<const MNavStealthLink::Frame *>(a)->name.c_str(),dynamic_cast<const MNavStealthLink::Frame *>(b)->name.c_str()) < 0;
         }else{
+            //std::cout << typeid(*a).name() << std::endl;
             return strcmp(typeid(*a).name(),typeid(*b).name()) < 0;
+
         }
     }
 
@@ -530,7 +563,7 @@ void mtsMedtronicStealthlink::Registration::ConfigureInterfaceProvided(mtsInterf
 {
     if (provided_in) {
             provided_in->AddCommandReadState(this->myStateTable, this->Transformation, "GetTransformation");
-            provided_in->AddCommandReadState(this->myStateTable, this->Valid, "GetValid");
+            //provided_in->AddCommandReadState(this->myStateTable, this->Valid, "GetValid");
             provided_in->AddCommandReadState(this->myStateTable, this->PredictedAccuracy, "GetPredictedAccuracy");
     }
 }

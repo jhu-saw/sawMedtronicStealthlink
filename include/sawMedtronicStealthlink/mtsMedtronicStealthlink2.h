@@ -129,6 +129,7 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
 
     };
     Registration RegistrationMember;
+    void GetRegistrationValid(bool & valid_out) const;
 
     // Class used to store exam info
     class ExamInformation: public myGenericObject
@@ -166,7 +167,7 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskFromSignal
         protected:
             template <typename T> friend class MNavStealthLink::Subscription;
             friend class mtsMedtronicStealthlink;
-            void operator()(const MNavStealthLink::DataItem& item_in);
+            void operator()(const MNavStealthLink::DataItem& item_in) const;
         public:
             myCallback(mtsMedtronicStealthlink * parent_in):my_parent(parent_in) {}
     };

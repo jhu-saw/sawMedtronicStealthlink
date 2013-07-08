@@ -24,6 +24,7 @@ http://www.cisst.org/cisst/license.txt.
 #include <cisstMultiTask/mtsTaskPeriodic.h>
 #include <cisstMultiTask/mtsTransformationTypes.h>
 #include <cisstMultiTask/mtsFixedSizeVectorTypes.h>
+#include <cisstMultiTask/mtsVector.h>
 #include <cisstParameterTypes/prmPositionCartesianGet.h>
 
 // data types used for wrapper

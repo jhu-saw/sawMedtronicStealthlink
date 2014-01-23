@@ -55,6 +55,7 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskPeriodic
 
     // State data
     mtsStealthTool ToolData;
+    mtsStealthTool MultToolData;
     mtsStealthFrame FrameData;
     mtsStealthRegistration RegistrationData;
     mtsStealthProbeCal ProbeCal;
@@ -82,11 +83,17 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskPeriodic
     ToolsContainer Tools;
     Tool * CurrentTool, * CurrentFrame;
 
+    // Tracking MultTools flag
+    bool TrackMultTools;
+    enum { MAX_MULT_TOOLS = 5 };
+    Tool  * CurrentMultTool[MAX_MULT_TOOLS];
+
+
     // Class used to store registration data
     class Registration
     {
     public:
-        mtsFrm3 Transformation;
+        vctFrm3 Transformation;
         mtsBool Valid;
         mtsDouble PredictedAccuracy;
     };
@@ -106,7 +113,7 @@ class CISST_EXPORT mtsMedtronicStealthlink: public mtsTaskPeriodic
     // surgical plan
     void RequestSurgicalPlan(void);
     void GetSurgicalPlan(mtsDoubleVec & plan) const;
-
+    
     /*! Mark all tool data as invalid */
     void ResetAllTools(void);
 

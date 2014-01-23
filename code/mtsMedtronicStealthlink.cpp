@@ -70,6 +70,8 @@ void mtsMedtronicStealthlink::Init(void)
 #endif
     this->Utils = new mtsMedtronicStealthlink_AsCL_Utils;
 
+    TrackMultTools = false;
+
     SurgicalPlan.SetSize(6);
 
     // Stealth Tool -- the position of the tracked tool, as a frame
@@ -120,7 +122,8 @@ mtsMedtronicStealthlink::mtsMedtronicStealthlink(const std::string & taskName, c
     mtsTaskPeriodic(taskName, periodInSeconds, false, 1000),
     StealthlinkPresent(false),
     CurrentTool(0),
-    CurrentFrame(0)
+    CurrentFrame(0),
+    CurrentMultTool {0, 0, 0, 0, 0}
 {
     Init();
 }
@@ -130,7 +133,8 @@ mtsMedtronicStealthlink::mtsMedtronicStealthlink(const mtsTaskPeriodicConstructo
     mtsTaskPeriodic(arg),
     StealthlinkPresent(false),
     CurrentTool(0),
-    CurrentFrame(0)
+    CurrentFrame(0),
+    CurrentMultTool {0, 0, 0, 0, 0}
 {
     Init();
 }
@@ -170,6 +174,18 @@ void mtsMedtronicStealthlink::Configure(const std::string &filename)
     this->Client->SetHostName(const_cast<char *>(ipAddress.c_str()));
 #endif
 
+    // Set Tracking Tool mode (MultTools or SingleTool)
+    std::string trackMultTools;
+    if (config.GetXMLValue("/tracker/trackmode", "@mode", trackMultTools, "")) {
+        if ( trackMultTools.compare("MultTools") == 0 ) {
+            TrackMultTools = true;
+        } else {
+            TrackMultTools = false;
+        }
+
+        CMN_LOG_CLASS_INIT_VERBOSE << "Configure: setting Tracking Tool Mode = " << trackMultTools << std::endl;
+    }
+    
     // add pre-defined tools (up to 100)
     for (unsigned int i = 0; i < 100; i++) {
         std::stringstream context;
@@ -313,17 +329,63 @@ void mtsMedtronicStealthlink::GetSurgicalPlan(mtsDoubleVec & plan) const
 void mtsMedtronicStealthlink::Run(void)
 {
     ResetAllTools();  // Set all tools invalid
+
     if (StealthlinkPresent) {
 #ifndef sawMedtronicStealthlink_IS_SIMULATOR
-        // Get the data from Stealthlink.
-        all_info info;
-        this->Client->GetDataForCode(GET_ALL, reinterpret_cast<void*>(&info));
 
-        // set data for "controller" interface (note: this uses non
-        // standard cisst types and should probably be removed later (adeguet1)
-        ToolData = info.Tool;
-        FrameData = info.Frame;
-        RegistrationData = info.Reg;
+        all_info info;
+        multtool mult_tool;
+        probe_calibration probe_cal;
+        mult_probe_calibration mult_probe_cal;
+
+        tool * mtools[MAX_MULT_TOOLS];
+        probe_calibration * mcals[MAX_MULT_TOOLS];
+
+        unsigned int iteration_num;
+
+        // Get the data from Stealthlink.
+        if (TrackMultTools) {   // MultTools mode
+            
+            this->Client->GetDataForCode(GET_MULT_TOOL, reinterpret_cast<void*>(&mult_tool));
+
+            mtools[0] = &mult_tool.Tool0;
+            mtools[1] = &mult_tool.Tool1;
+            mtools[2] = &mult_tool.Tool2;
+            mtools[3] = &mult_tool.Tool3;
+            mtools[4] = &mult_tool.Tool4;
+            
+            mcals[0] = &mult_probe_cal.ProbeCal0;
+            mcals[1] = &mult_probe_cal.ProbeCal1;
+            mcals[2] = &mult_probe_cal.ProbeCal2;
+            mcals[3] = &mult_probe_cal.ProbeCal3;
+            mcals[4] = &mult_probe_cal.ProbeCal4;
+            
+            frame frame_data;
+            this->Client->GetDataForCode(GET_FRAME, reinterpret_cast<void*>(&frame_data));
+            FrameData = frame_data;
+
+            registration registration_data;
+            this->Client->GetDataForCode(GET_REGISTRATION, reinterpret_cast<void*>(&registration_data));
+            RegistrationData = registration_data;
+
+            iteration_num = MAX_MULT_TOOLS;
+
+        } else {    // SingleTool mode
+            
+            this->Client->GetDataForCode(GET_ALL, reinterpret_cast<void*>(&info));
+            
+            // set data for "controller" interface (note: this uses non
+            // standard cisst types and should probably be removed later (adeguet1)
+
+            mtools[0] = &info.Tool;
+            mcals[0] = &probe_cal;
+            
+            FrameData = info.Frame;
+            RegistrationData = info.Reg;
+            
+            iteration_num = 1;
+        }
+
 #else
         // Compute some simulated data
         const ToolsContainer::const_iterator firstTool = Tools.begin();
@@ -349,64 +411,81 @@ void mtsMedtronicStealthlink::Run(void)
                 }
             }
             simulatedTool.valid = true;
-            ToolData = simulatedTool;
+            ToolData = &simulatedTool;
         }
-#endif
-        // update tool interfaces data
-        if (ToolData.Valid()) {
-            if (!CurrentTool || (CurrentTool->GetStealthName() != ToolData.GetName())) {
-                CurrentTool = FindTool(ToolData.GetName());
-                if (!CurrentTool) {
-                    CMN_LOG_CLASS_INIT_VERBOSE << "Run: adding new tool \""
-                                               << ToolData.GetName() << "\"" << std::endl;
-                    CurrentTool = AddTool(ToolData.GetName(), ToolData.GetName());
-                }
-                if (CurrentTool) {
-                    CMN_LOG_CLASS_RUN_VERBOSE << "Run: current tool is now \""
-                                              << CurrentTool->GetInterfaceName() << "\"" << std::endl;
-                } else {
-                    CMN_LOG_CLASS_RUN_ERROR << "Run: unable to add provided interface for new tool \""
-                                            << ToolData.GetName() << "\"" << std::endl;
-                }
-            }
-            // rely on older interface to retrieve tool information
-            if (CurrentTool) {
-                CurrentTool->MarkerPosition.Position() = ToolData.GetFrame();
-                CurrentTool->MarkerPosition.SetValid(true);
-            }
-            // Get tool tip calibration if it is invalid or has changed
-            if ((strcmp(ToolData.GetName(), ProbeCal.GetName()) != 0) || !ProbeCal.Valid()) {
-#ifndef sawMedtronicStealthlink_IS_SIMULATOR
-                probe_calibration probe_cal;
-                this->Client->GetDataForCode(GET_PROBE_CALIBRATION,
-                                             reinterpret_cast<void*>(&probe_cal));
-                ProbeCal = probe_cal;
-                
-                std::cout << "Got probe cal " << ToolData.GetName() << std::endl;
-                std::cout << "   probe cal " << ProbeCal.GetName() << std::endl;
-                std::cout << "   tip " << ProbeCal.GetTip() << std::endl;
-                std::cout << "   hind " << ProbeCal.GetHind() << std::endl;
-                std::cout << "   valid " << ProbeCal.Valid() << std::endl;
-#endif
-            }else
-            {
-                std::cout << "did not get got probe cal " << ToolData.GetName() << std::endl;
-            }
-            // If we have valid data, then store the result
-            if (CurrentTool && ProbeCal.Valid() &&
-                (strcmp(ToolData.GetName(), ProbeCal.GetName()) == 0)) {
-                CurrentTool->TooltipPosition.Position() = vctFrm3(ToolData.GetFrame().Rotation(),
-                                                                  ToolData.GetFrame() * ProbeCal.GetTip());
-                CurrentTool->TooltipPosition.SetValid(true);
-            }else
-            {
-                if(!CurrentTool)
-                    std::cout << "CurrentTool not valid" << ProbeCal.Valid() << std::endl;
-                if(!ProbeCal.Valid())
-                    std::cout << "ProbeCal not valid" << ProbeCal.Valid() << std::endl;
-                if(!(strcmp(ToolData.GetName(), ProbeCal.GetName()) == 0))
-                    std::cout << ToolData.GetName() << " does not match " << ProbeCal.GetName() << std::endl;
+#endif            
+        // update Multiple Tool data
+        for (unsigned int i = 0; i < iteration_num; i++) {
+            if (mtools[i]->valid) {
 
+                MultToolData = *mtools[i];
+
+                if (!CurrentMultTool[i] || (CurrentMultTool[i]->GetStealthName() != MultToolData.GetName())) {
+                    CurrentMultTool[i] = FindTool(MultToolData.GetName());
+                    // PK: I don't think we should call AddTool in the Run method. If the tool was not defined in
+                    // the XML file, we should ignore it.
+#if 0
+                    if (!CurrentMultTool[i]) {
+                        CMN_LOG_CLASS_INIT_VERBOSE << "Run: adding new tool \""
+                                                   << MultToolData.GetName() << "\"" << std::endl;
+                        CurrentMultTool[i] = AddTool(MultToolData.GetName(), MultToolData.GetName());
+                    }
+                    if (CurrentMultTool[i]) {
+                        CMN_LOG_CLASS_RUN_VERBOSE << "Run: current tool is now \""
+                                                  << CurrentMultTool[i]->GetInterfaceName() << "\"" << std::endl;
+                    } else {
+                        CMN_LOG_CLASS_RUN_ERROR << "Run: unable to add provided interface for new tool \""
+                                                << MultToolData.GetName() << "\"" << std::endl;
+                    }
+#else
+                    if (CurrentMultTool[i])
+                        CMN_LOG_CLASS_RUN_VERBOSE << "Run: current tool " << i << " is now \""
+                                                  << CurrentMultTool[i]->GetInterfaceName() << "\"" << std::endl;
+                    else
+                        CMN_LOG_CLASS_INIT_VERBOSE << "Run: ignoring unconfigured tool \""
+                                                   << MultToolData.GetName() << "\"" << std::endl;
+#endif
+                }
+                // rely on older interface to retrieve tool information
+                if (CurrentMultTool[i]) {
+                    CurrentMultTool[i]->MarkerPosition.Position() = MultToolData.GetFrame();
+                    CurrentMultTool[i]->MarkerPosition.SetValid(true);
+                }
+
+                ProbeCal = *mcals[i];
+
+                // Get tool tip calibration if it is invalid or has changed
+                if ((strcmp(MultToolData.GetName(), ProbeCal.GetName()) != 0) || !ProbeCal.Valid()) {
+#ifndef sawMedtronicStealthlink_IS_SIMULATOR
+                    
+                    if (TrackMultTools)
+                        this->Client->GetDataForCode(GET_MULT_PROBE_CALIBRATION, reinterpret_cast<void*>(&mult_probe_cal));
+                    else
+                        this->Client->GetDataForCode(GET_PROBE_CALIBRATION, reinterpret_cast<void*>(&probe_cal));
+                    
+                    ProbeCal = *mcals[i];
+#endif
+                }else
+                {
+                    std::cout << "did not get got probe cal " << ToolData.GetName() << std::endl;
+                }
+
+
+                // If we have valid data, then store the result
+                if (CurrentMultTool[i] && ProbeCal.Valid() &&
+                    (strcmp(MultToolData.GetName(), ProbeCal.GetName()) == 0)) {
+                    CurrentMultTool[i]->TooltipPosition.Position() = vctFrm3( MultToolData.GetFrame().Rotation(),
+                                                                              MultToolData.GetFrame() * ProbeCal.GetTip());
+                    CurrentMultTool[i]->TooltipPosition.SetValid(true);
+                    std::cout << "ProbeCal[" << i << "]: " << ProbeCal.GetTip() << std::endl;
+                } else {
+                    if(!CurrentMultTool[i])
+                        std::cout << "CurrentMultTool[" << i << "] not valid" << std::endl;
+                    if(!ProbeCal.Valid())
+                        std::cout << "ProbeCal not valid" << ProbeCal.Valid() << std::endl;
+                    if(!(strcmp(MultToolData.GetName(), ProbeCal.GetName()) == 0))
+                        std::cout << MultToolData.GetName() << " does not match " << ProbeCal.GetName() << std::endl;
+                }
             }
         }
 
